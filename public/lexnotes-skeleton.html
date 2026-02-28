@@ -651,6 +651,15 @@ function Topbar({view,onNew,onToast}){
 
 /* ═══════════════ DASHBOARD ══════════════════════ */
 function Dashboard({notes,onToast,onNav}){
+  const DASH_KEY='lexnotes:dashboard-widgets';
+  const DEFAULT_WIDGETS=[
+    {id:'upcoming',label:'Upcoming',on:true},
+    {id:'recent',label:'Recent Notes',on:true},
+    {id:'insights',label:'AI Insights',on:true},
+    {id:'practice',label:'Practice Stats',on:true},
+    {id:'outline',label:'Outline Preview',on:true},
+    {id:'inbox',label:'Inbox',on:true},
+  ];
   const upcoming=[
     {l:'Contracts — Chapter 12 reading',w:'Today 9:00 AM',c:'#5283e0'},
     {l:'Office Hours — Prof. Chen',w:'Today 2:00 PM',c:'#d95f5f'},
@@ -658,6 +667,29 @@ function Dashboard({notes,onToast,onNav}){
     {l:'Torts Outline Draft',w:'Feb 15',c:'#c9a84c'},
     {l:'Moot Court Practice',w:'Feb 15, 3pm',c:'#8f67d8'},
   ];
+  const [widgets,setWidgets]=useState(DEFAULT_WIDGETS);
+  const [showCustomize,setShowCustomize]=useState(false);
+
+  useEffect(()=>{
+    try{
+      const raw=localStorage.getItem(DASH_KEY);
+      if(!raw)return;
+      const saved=JSON.parse(raw);
+      if(!Array.isArray(saved))return;
+      setWidgets(DEFAULT_WIDGETS.map(w=>{
+        const hit=saved.find(s=>s.id===w.id);
+        return hit?{...w,on:!!hit.on}:w;
+      }));
+    }catch{}
+  },[]);
+
+  useEffect(()=>{
+    try{localStorage.setItem(DASH_KEY,JSON.stringify(widgets.map(w=>({id:w.id,on:w.on}))));}catch{}
+  },[widgets]);
+
+  const isOn=id=>widgets.find(w=>w.id===id)?.on;
+  const toggleWidget=id=>setWidgets(p=>p.map(w=>w.id===id?{...w,on:!w.on}:w));
+
   return(
     <div className="view active afu" style={{flexDirection:'column'}}>
       <div className="dash-scroll">
@@ -667,7 +699,7 @@ function Dashboard({notes,onToast,onNav}){
             <div className="greeting-sub">Monday, Feb 13, 2025 · 1L Fall Semester</div>
           </div>
           <div style={{display:'flex',gap:8}}>
-            <button className="btn btn-ghost btn-sm" onClick={()=>onToast('Dashboard customization — drag widgets in v1.1')}>⊞ Customize</button>
+            <button className="btn btn-ghost btn-sm" onClick={()=>setShowCustomize(true)}>⊞ Customize</button>
             <button className="btn btn-primary btn-sm" onClick={()=>onNav('notes')}>+ New Note</button>
           </div>
         </div>
@@ -684,7 +716,7 @@ function Dashboard({notes,onToast,onNav}){
 
         <div className="wgrid">
           {/* Upcoming */}
-          <div className="wcard">
+          {isOn('upcoming')&&<div className="wcard">
             <div className="whead"><span className="wtitle">Upcoming</span><button className="btn btn-ghost btn-sm" onClick={()=>onNav('calendar')}>Calendar →</button></div>
             <div className="wbody">{upcoming.map((u,i)=>(
               <div key={i} className="wrow">
@@ -693,11 +725,10 @@ function Dashboard({notes,onToast,onNav}){
                   <div><div style={{fontSize:12,fontWeight:500}}>{u.l}</div><div style={{fontSize:10,color:'var(--dim)',fontFamily:'JetBrains Mono,monospace'}}>{u.w}</div></div>
                 </div>
               </div>
-            ))}</div>
-          </div>
+            ))}</div></div>}
 
           {/* Recent Notes */}
-          <div className="wcard">
+          {isOn('recent')&&<div className="wcard">
             <div className="whead"><span className="wtitle">Recent Notes</span><button className="btn btn-ghost btn-sm" onClick={()=>onNav('notes')}>All →</button></div>
             <div className="wbody">{notes.slice(0,5).map(n=>{
               const c=COURSES.find(c=>c.id===n.course);
@@ -710,21 +741,20 @@ function Dashboard({notes,onToast,onNav}){
                   <span style={{fontSize:9,background:'var(--surface2)',padding:'1px 5px',borderRadius:3,color:'var(--dim)',flexShrink:0}}>{n.type}</span>
                 </div>
               );
-            })}</div>
-          </div>
+            })}</div></div>}
 
           {/* AI Insights */}
-          <div className="wcard">
+          {isOn('insights')&&<div className="wcard">
             <div className="whead"><span className="wtitle">AI Insights</span><div className="aidot" style={{width:6,height:6,borderRadius:'50%',background:'var(--green)',animation:'pulse 2s infinite'}}/></div>
             <div className="wbody">
               <div style={{fontSize:11.5,color:'var(--muted)',lineHeight:1.6,marginBottom:10}}>You've covered negligence duty extensively but haven't reviewed <strong style={{color:'var(--text)'}}>proximate cause</strong> recently.</div>
               <div style={{fontSize:11.5,color:'var(--muted)',lineHeight:1.6,marginBottom:10}}>Contracts gap: <strong style={{color:'var(--accent)'}}>promissory estoppel</strong> — 3 cases assigned, 0 briefed.</div>
               <button className="btn btn-ghost btn-sm" style={{width:'100%',marginTop:4}} onClick={()=>onToast('Generating personalized study plan…')}>⚡ Generate Study Plan</button>
             </div>
-          </div>
+          </div>}
 
           {/* Practice by course */}
-          <div className="wcard">
+          {isOn('practice')&&<div className="wcard">
             <div className="whead"><span className="wtitle">Practice Stats</span><button className="btn btn-ghost btn-sm" onClick={()=>onNav('practice')}>Practice →</button></div>
             <div className="wbody">{COURSES.map((c,i)=>{
               const pct=[72,68,81,74,65][i];
@@ -737,11 +767,10 @@ function Dashboard({notes,onToast,onNav}){
                   </div>
                 </div>
               );
-            })}</div>
-          </div>
+            })}</div></div>}
 
           {/* Outline preview */}
-          <div className="wcard span2">
+          {isOn('outline')&&<div className="wcard span2">
             <div className="whead"><span className="wtitle">Outline Preview — Contracts</span><button className="btn btn-ghost btn-sm" onClick={()=>onNav('outline')}>Full Outline →</button></div>
             <div className="wbody" style={{fontFamily:'JetBrains Mono,monospace',fontSize:11,lineHeight:1.85,color:'var(--muted)',display:'grid',gridTemplateColumns:'1fr 1fr',columnGap:24}}>
               <div><span style={{color:'var(--text)',fontWeight:600}}>I. Formation</span><br/>
@@ -758,10 +787,10 @@ function Dashboard({notes,onToast,onNav}){
               &nbsp;&nbsp;D. Reliance & Restitution<br/>
               <span style={{color:'var(--text)',fontWeight:600}}>IV. Impossibility / Frustration</span></div>
             </div>
-          </div>
+          </div>}
 
           {/* Email */}
-          <div className="wcard">
+          {isOn('inbox')&&<div className="wcard">
             <div className="whead"><span className="wtitle">Inbox</span><button className="btn btn-ghost btn-sm" onClick={()=>onToast('Compose email')}>Compose</button></div>
             <div className="wbody">{[
               {from:'Prof. Chen',sub:'Re: Tuesday Office Hours',t:'9:14am',unread:true},
@@ -776,10 +805,20 @@ function Dashboard({notes,onToast,onNav}){
                 </div>
                 <span style={{fontSize:9.5,color:'var(--dim)',fontFamily:'JetBrains Mono,monospace',flexShrink:0}}>{m.t}</span>
               </div>
-            ))}</div>
-          </div>
+            ))}</div></div>}
         </div>
       </div>
+      <Modal open={showCustomize} onClose={()=>setShowCustomize(false)} title="Customize Dashboard" sub="Show or hide widgets" size="modal-sm">
+        <div className="mbody">
+          {widgets.map(w=>(
+            <div key={w.id} className="setrow" style={{padding:'8px 0'}}>
+              <div style={{fontSize:12}}>{w.label}</div>
+              <Toggle on={w.on} onToggle={()=>toggleWidget(w.id)}/>
+            </div>
+          ))}
+          <button className="btn btn-primary" style={{width:'100%',padding:10}} onClick={()=>{setShowCustomize(false);onToast('Dashboard layout saved');}}>Done</button>
+        </div>
+      </Modal>
     </div>
   );
 }
@@ -1632,14 +1671,59 @@ function TextbooksView({onToast}){
 
 /* ═══════════════ INTEGRATIONS ══════════════════ */
 function IntegrationsView({onToast}){
-  const ints=[
-    {ic:'🎓',bg:'rgba(82,131,224,.14)',name:'Canvas LMS',desc:'Sync course materials, assignments, due dates, and syllabi directly into LexNotes.',connected:true,status:'5 courses synced'},
-    {ic:'📅',bg:'rgba(217,95,95,.14)',name:'Google Calendar',desc:'Two-way sync. Class schedules, office hours, and deadlines auto-populate LexNotes calendar.',connected:true,status:'Syncing live'},
-    {ic:'📘',bg:'rgba(0,120,212,.14)',name:'Microsoft 365',desc:'Sync with Outlook and OneDrive. Export outlines and briefs directly to Word.',connected:false},
-    {ic:'🖤',bg:'rgba(74,171,120,.14)',name:'Blackboard',desc:'Pull course documents, announcements, and grade updates from Blackboard.',connected:false},
-    {ic:'🗒',bg:'rgba(255,204,0,.14)',name:'Quimbee',desc:'Import case summaries and supplement your briefs automatically.',connected:false},
-    {ic:'🎙',bg:'rgba(201,168,76,.14)',name:'Zoom / Teams',desc:'Auto-import lecture recordings and generate AI notes from virtual classes.',connected:false,soon:true},
+  const INT_KEY='lexnotes:integrations';
+  const defaults=[
+    {id:'canvas',ic:'🎓',bg:'rgba(82,131,224,.14)',name:'Canvas LMS',desc:'Sync courses, assignments, due dates, and syllabi into LexNotes.',connected:false,status:''},
+    {id:'google',ic:'📅',bg:'rgba(217,95,95,.14)',name:'Google Calendar',desc:'Two-way calendar sync for classes, office hours, and deadlines.',connected:false,status:''},
+    {id:'m365',ic:'📘',bg:'rgba(0,120,212,.14)',name:'Microsoft 365',desc:'Sync Outlook and OneDrive. Export outlines and briefs to Word.',connected:false,status:''},
+    {id:'blackboard',ic:'🖤',bg:'rgba(74,171,120,.14)',name:'Blackboard',desc:'Pull course docs, announcements, and grade updates.',connected:false,status:''},
+    {id:'quimbee',ic:'🗒',bg:'rgba(255,204,0,.14)',name:'Quimbee',desc:'Import case summaries and supplement briefs automatically.',connected:false,status:''},
+    {id:'zoom',ic:'🎙',bg:'rgba(201,168,76,.14)',name:'Zoom / Teams',desc:'Auto-import lecture recordings and generate AI notes.',connected:false,status:'',soon:true},
   ];
+  const [ints,setInts]=useState(defaults);
+  const [authTarget,setAuthTarget]=useState(null);
+  const [creds,setCreds]=useState({baseUrl:'',username:'',password:'',apiToken:''});
+
+  useEffect(()=>{
+    try{
+      const raw=localStorage.getItem(INT_KEY);
+      if(!raw)return;
+      const saved=JSON.parse(raw);
+      if(Array.isArray(saved)&&saved.length)setInts(saved);
+    }catch{}
+  },[]);
+
+  useEffect(()=>{
+    try{localStorage.setItem(INT_KEY,JSON.stringify(ints));}catch{}
+  },[ints]);
+
+  function openConnect(i){
+    setAuthTarget(i);
+    setCreds(i.creds||{baseUrl:'',username:'',password:'',apiToken:''});
+  }
+
+  function disconnect(i){
+    setInts(p=>p.map(x=>x.id===i.id?{...x,connected:false,status:'Not connected',creds:{}}:x));
+    onToast(`${i.name} disconnected`);
+  }
+
+  function saveConnection(){
+    if(!authTarget)return;
+    if((authTarget.id==='canvas'||authTarget.id==='blackboard')&&!creds.baseUrl.trim()){
+      onToast('Base URL is required');return;
+    }
+    if(!creds.username.trim()){onToast('Username/email is required');return;}
+    if(!creds.password.trim()&&!creds.apiToken.trim()){onToast('Password or API token is required');return;}
+    setInts(p=>p.map(i=>i.id===authTarget.id?{
+      ...i,
+      connected:true,
+      status:`Connected as ${creds.username}`,
+      creds:{...creds,lastConnected:new Date().toISOString()},
+    }:i));
+    onToast(`${authTarget.name} connected`);
+    setAuthTarget(null);
+  }
+
   return(
     <div className="view active afu" style={{flexDirection:'column'}}>
       <div className="intwrap">
@@ -1657,7 +1741,11 @@ function IntegrationsView({onToast}){
                 <div className="sdot" style={{background:i.connected?'var(--green)':i.soon?'var(--accent)':'var(--dim)'}}/>
                 <span style={{color:i.connected?'var(--green)':i.soon?'var(--accent)':'var(--muted)'}}>{i.connected?'Connected':i.soon?'Coming soon':'Not connected'}</span>
                 {i.status&&<span style={{color:'var(--dim)',marginLeft:'auto'}}>{i.status}</span>}
-                {!i.connected&&!i.soon&&<button className="btn btn-ghost btn-sm" style={{marginLeft:'auto'}} onClick={()=>onToast(`Connecting to ${i.name}…`)}>Connect</button>}
+                {!i.soon&&!i.connected&&<button className="btn btn-ghost btn-sm" style={{marginLeft:'auto'}} onClick={()=>openConnect(i)}>Connect</button>}
+                {!i.soon&&i.connected&&<>
+                  <button className="btn btn-ghost btn-sm" style={{marginLeft:'auto'}} onClick={()=>openConnect(i)}>Reconnect</button>
+                  <button className="btn btn-ghost-danger btn-sm" onClick={()=>disconnect(i)}>Disconnect</button>
+                </>}
               </div>
             </div>
           ))}
@@ -1667,6 +1755,32 @@ function IntegrationsView({onToast}){
           <div style={{fontSize:12.5,lineHeight:1.7,color:'var(--muted)'}}>LexNotes AI reads your Canvas assignments, Google Calendar events, and class schedules to build a <strong style={{color:'var(--text)'}}>unified smart calendar</strong>. It detects conflicts, suggests study blocks before exams, and flags reading assignments that haven't been noted yet.</div>
         </div>
       </div>
+      <Modal open={!!authTarget} onClose={()=>setAuthTarget(null)} title={`Connect ${authTarget?.name||''}`} sub="Store credentials locally for this demo" size="modal-sm">
+        <div className="mbody">
+          {(authTarget?.id==='canvas'||authTarget?.id==='blackboard')&&(
+            <div className="ff">
+              <label className="lbl">Base URL</label>
+              <input className="inp" value={creds.baseUrl} onChange={e=>setCreds(p=>({...p,baseUrl:e.target.value}))} placeholder="https://school.instructure.com or https://school.blackboard.com"/>
+            </div>
+          )}
+          <div className="ff">
+            <label className="lbl">Username / Email</label>
+            <input className="inp" value={creds.username} onChange={e=>setCreds(p=>({...p,username:e.target.value}))} placeholder="your@email.edu"/>
+          </div>
+          <div className="ff">
+            <label className="lbl">Password</label>
+            <input className="inp" type="password" value={creds.password} onChange={e=>setCreds(p=>({...p,password:e.target.value}))} placeholder="Password"/>
+          </div>
+          <div className="ff">
+            <label className="lbl">API Token (Optional)</label>
+            <input className="inp" value={creds.apiToken} onChange={e=>setCreds(p=>({...p,apiToken:e.target.value}))} placeholder="Paste token if provided by platform"/>
+          </div>
+          <div className="frow">
+            <button className="btn btn-ghost" style={{flex:1}} onClick={()=>setAuthTarget(null)}>Cancel</button>
+            <button className="btn btn-primary" style={{flex:1}} onClick={saveConnection}>Connect</button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
