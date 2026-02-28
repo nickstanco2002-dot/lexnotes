@@ -919,7 +919,8 @@ function Dashboard({notes,onToast,onNav,user}){
 }
 
 /* ═══════════════ NOTES VIEW ════════════════════ */
-function NotesView({notes,setNotes,onToast}){
+function NotesView({notes,setNotes,onToast,user}){
+  const NOTES_META_KEY=`lexnotes:${user?.id||'anon'}:notes-meta`;
   const [activeCourse,setActiveCourse]=useState('torts');
   const [activeTopic,setActiveTopic]=useState('negligence');
   const [extraCourses,setExtraCourses]=useState([]);
@@ -1431,7 +1432,7 @@ C. Impossibility/Frustration`;
 }
 
 /* ═══════════════ PRACTICE VIEW ═════════════════ */
-function PracticeView({onToast}){
+function PracticeView({onToast,user}){
   const [qi,setQi]=useState(0);
   const [ans,setAns]=useState(null);
   const [cFilter,setCFilter]=useState('All');
@@ -1445,7 +1446,7 @@ function PracticeView({onToast}){
   }
   function next(){setAns(null);setQi(p=>(p+1)%PRACTICE_QS.length);}
   function saveFlashCard(){
-    const key='lexnotes:flashcards';
+    const key=`lexnotes:${user?.id||'anon'}:flashcards`;
     const cards=readJSON(key,[]);
     const card={id:nextId(),question:q.text,answer:q.opts[q.correct],topic:`${q.course} · ${q.topic}`,savedAt:new Date().toISOString()};
     writeJSON(key,[card,...cards].slice(0,300));
@@ -1498,8 +1499,8 @@ function PracticeView({onToast}){
 }
 
 /* ═══════════════ CALENDAR VIEW ════════════════ */
-function CalendarView({onToast}){
-  const CAL_KEY='lexnotes:calendar-events';
+function CalendarView({onToast,user}){
+  const CAL_KEY=`lexnotes:${user?.id||'anon'}:calendar-events`;
   const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const [cursor,setCursor]=useState(()=>new Date(2025,1,1));
   const [customEvents,setCustomEvents]=useState(()=>readJSON(CAL_KEY,{}));
@@ -2064,7 +2065,7 @@ function IntegrationsView({onToast,user}){
 }
 
 /* ═══════════════ SETTINGS ═══════════════════ */
-function SettingsView({onToast,user}){
+function SettingsView({onToast,user,onUpdateUser}){
   const SETTINGS_KEY=`lexnotes:${user?.id||'anon'}:settings`;
   const [notifs,setNotifs]=useState({email:true,push:true,canvas:true,reminders:false});
   const [aiPrefs,setAiPrefs]=useState({autoSuggest:true,flashCards:true,outlineSync:true,practiceQ:false});
@@ -2126,7 +2127,7 @@ function SettingsView({onToast,user}){
                   <select className="sel" value={profile.semester} onChange={e=>setProfile(p=>({...p,semester:e.target.value}))}><option>Fall 2025</option><option>Spring 2025</option></select>
                 </div>
               </div>
-              <button className="btn btn-primary" style={{width:'100%',padding:9}} onClick={()=>onToast('Profile saved ✓')}>Save Changes</button>
+              <button className="btn btn-primary" style={{width:'100%',padding:9}} onClick={()=>{onUpdateUser?.({name:profile.name});onToast('Profile saved ✓');}}>Save Changes</button>
             </>}
             {settingTab==='notifications'&&<>
               <div style={{fontSize:14,fontWeight:600,marginBottom:4}}>Notifications</div>
@@ -2273,6 +2274,14 @@ function App(){
     showToast('Logged out');
   }
 
+  function updateUser(partial){
+    if(!user)return;
+    const next={...user,...partial};
+    setUser(next);
+    const users=readJSON(USERS_KEY,[]);
+    writeJSON(USERS_KEY,users.map(u=>u.id===next.id?{...u,...partial}:u));
+  }
+
   function handleNew(){
     if(view==='notes')showToast('Creating new note…');
     else if(view==='textbooks')showToast('Upload a PDF or ePub to add a textbook');
@@ -2313,14 +2322,14 @@ function App(){
         <div className="content">
           {!user && <AuthScreen onAuth={u=>{setUser(u);showToast(`Welcome, ${u.name}`);}}/>}
           {user&&view==='dashboard'    && <Dashboard notes={notes} onToast={showToast} onNav={setView} user={user}/>}
-          {user&&view==='notes'        && <NotesView notes={notes} setNotes={setNotes} onToast={showToast}/>}
+          {user&&view==='notes'        && <NotesView notes={notes} setNotes={setNotes} onToast={showToast} user={user}/>}
           {user&&view==='outline'      && <OutlineView onToast={showToast}/>}
-          {user&&view==='practice'     && <PracticeView onToast={showToast}/>}
-          {user&&view==='calendar'     && <CalendarView onToast={showToast}/>}
+          {user&&view==='practice'     && <PracticeView onToast={showToast} user={user}/>}
+          {user&&view==='calendar'     && <CalendarView onToast={showToast} user={user}/>}
           {user&&view==='docs'         && <DocsView docs={docs} setDocs={setDocs} onToast={showToast}/>}
           {user&&view==='textbooks'    && <TextbooksView onToast={showToast} user={user}/>}
           {user&&view==='integrations' && <IntegrationsView onToast={showToast} user={user}/>}
-          {user&&view==='settings'     && <SettingsView onToast={showToast} user={user}/>}
+          {user&&view==='settings'     && <SettingsView onToast={showToast} user={user} onUpdateUser={updateUser}/>}
           {user&&view==='apis'         && <APIView/>}
         </div>
       </div>
@@ -2333,3 +2342,14 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
 </body>
 </html>
+  useEffect(()=>{
+    const saved=readJSON(NOTES_META_KEY,null);
+    if(saved){
+      if(Array.isArray(saved.extraCourses))setExtraCourses(saved.extraCourses);
+      if(saved.extraTopics&&typeof saved.extraTopics==='object')setExtraTopics(saved.extraTopics);
+    }
+  },[NOTES_META_KEY]);
+
+  useEffect(()=>{
+    writeJSON(NOTES_META_KEY,{extraCourses,extraTopics});
+  },[extraCourses,extraTopics,NOTES_META_KEY]);
