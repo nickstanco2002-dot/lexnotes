@@ -1,22 +1,65 @@
-/** @type {import('tailwindcss').Config} */
-module.exports = {
-  content: [
-    './app/**/*.{js,ts,jsx,tsx}',
-    './pages/**/*.{js,ts,jsx,tsx}',
-    './components/**/*.{js,ts,jsx,tsx}',
-    './src/**/*.{js,ts,jsx,tsx}',
-  ],
-  theme: {
-    extend: {
-      colors: {
-        background: '#0b0c0e',
-        surface: '#111215',
-        accent: '#c9a84c',
-      },
-      borderRadius: {
-        xl: '16px',
-      },
-    },
-  },
-  plugins: [],
-};
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+:root {
+  --bg: #0c0d0f;
+  --surface: #141518;
+  --surface2: #1c1e23;
+  --surface3: #24272e;
+  --border: #2a2d35;
+  --accent: #c9a84c;
+  --accent2: #e8c97a;
+  --accent-dim: rgba(201,168,76,0.12);
+  --text: #e8e6df;
+  --text-muted: #7a7c85;
+  --text-dim: #4a4d58;
+  --red: #e05555;
+  --green: #4caf7d;
+  --blue: #5b8dee;
+  --radius: 8px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "DM Sans", sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  overflow: hidden;
+}
+
+.font-display {
+  font-family: "Playfair Display", serif;
+}
+
+.font-mono-ui {
+  font-family: "JetBrains Mono", monospace;
+}
+
+.font-sans-ui {
+  font-family: "DM Sans", sans-serif;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fadeIn 0.3s ease; }
