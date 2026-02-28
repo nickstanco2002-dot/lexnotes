@@ -22,7 +22,7 @@ export default function OutlineView() {
       <div className="p-4 border-b border-[var(--border)] bg-[var(--surface)] flex justify-between items-center">
         <div>
           <h2 className="text-[14px] font-semibold">Torts: Fall 2025</h2>
-          <p className="text-[11px] text-[var(--text-dim)] font-[family-name:'JetBrains_Mono']">Synthesizing 42 documents...</p>
+          <p className="text-[11px] text-[var(--text-dim)] font-mono-ui">Synthesizing 42 documents...</p>
         </div>
         <button 
           onClick={startGeneration}
@@ -38,7 +38,7 @@ export default function OutlineView() {
           {!outline && !generating ? (
             <div className="flex flex-col items-center justify-center h-full text-center">
               <div className="text-6xl mb-4 opacity-20">📜</div>
-              <h3 className="text-xl font-[family-name:'Playfair_Display']">No Outline Generated</h3>
+              <h3 className="text-xl font-display">No Outline Generated</h3>
               <p className="text-[13px] text-[var(--text-muted)] mt-2">Click the button above to synthesize your semester notes.</p>
             </div>
           ) : generating ? (
@@ -50,8 +50,8 @@ export default function OutlineView() {
             </div>
           ) : (
             <article className="space-y-8">
-              <h1 className="font-[family-name:'Playfair_Display'] text-4xl border-b border-[var(--border)] pb-4 text-[var(--accent)]">Torts Comprehensive Outline</h1>
-              <div className="space-y-8 font-[family-name:'DM_Sans'] text-[15px] leading-relaxed">
+              <h1 className="font-display text-4xl border-b border-[var(--border)] pb-4 text-[var(--accent)]">Torts Comprehensive Outline</h1>
+              <div className="space-y-8 font-sans-ui text-[15px] leading-relaxed">
                 <section>
                   <h2 className="text-2xl font-bold text-[var(--text)]">I. INTENTIONAL TORTS</h2>
                   <div className="pl-6 mt-4 space-y-4">

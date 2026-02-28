@@ -17,12 +17,12 @@ export default function Sidebar({ activeView, setActiveView }: { activeView: str
   return (
     <div className="w-[240px] bg-[var(--surface)] border-r border-[var(--border)] flex flex-col shrink-0">
       <div className="p-5 pb-4 border-b border-[var(--border)]">
-        <div className="font-[family-name:'Playfair_Display'] text-[22px] font-bold text-[var(--accent)] tracking-[-0.5px]">LexNotes</div>
-        <div className="text-[10px] text-[var(--text-muted)] tracking-[2px] uppercase mt-0.5 font-[family-name:'JetBrains_Mono']">Law School OS</div>
+        <div className="font-display text-[22px] font-bold text-[var(--accent)] tracking-[-0.5px]">LexNotes</div>
+        <div className="text-[10px] text-[var(--text-muted)] tracking-[2px] uppercase mt-0.5 font-mono-ui">Law School OS</div>
       </div>
 
       <div className="p-4 px-3 pt-4">
-        <div className="text-[9px] font-semibold tracking-[2.5px] uppercase text-[var(--text-dim)] px-2 mb-1.5 font-[family-name:'JetBrains_Mono']">Workspace</div>
+        <div className="text-[9px] font-semibold tracking-[2.5px] uppercase text-[var(--text-dim)] px-2 mb-1.5 font-mono-ui">Workspace</div>
         {navItems.map(item => (
           <div 
             key={item.id}

@@ -39,7 +39,7 @@ export default function LexNotesApp() {
           {activeView === 'calendar' && (
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center fade-in">
-                <div className="text-[18px] font-[family-name:'Playfair_Display'] font-bold mb-2">Calendar</div>
+                <div className="text-[18px] font-display font-bold mb-2">Calendar</div>
                 <div className="text-[12px] text-[var(--text-muted)]">Coming soon in the next release</div>
               </div>
             </div>
@@ -47,7 +47,7 @@ export default function LexNotesApp() {
           {activeView === 'docs' && (
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center fade-in">
-                <div className="text-[18px] font-[family-name:'Playfair_Display'] font-bold mb-2">Documents</div>
+                <div className="text-[18px] font-display font-bold mb-2">Documents</div>
                 <div className="text-[12px] text-[var(--text-muted)]">Coming soon in the next release</div>
               </div>
             </div>
@@ -55,7 +55,7 @@ export default function LexNotesApp() {
           {activeView === 'integrations' && (
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center fade-in">
-                <div className="text-[18px] font-[family-name:'Playfair_Display'] font-bold mb-2">Integrations</div>
+                <div className="text-[18px] font-display font-bold mb-2">Integrations</div>
                 <div className="text-[12px] text-[var(--text-muted)]">Coming soon in the next release</div>
               </div>
             </div>

@@ -15,7 +15,7 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[var(--bg)] text-[var(--text)]">
       <div className="bg-[var(--surface)] p-10 rounded-xl w-96 border border-[var(--border)]">
-        <h1 className="text-2xl font-[family-name:'Playfair_Display'] font-bold mb-2">LexNotes</h1>
+        <h1 className="text-2xl font-display font-bold mb-2">LexNotes</h1>
         <p className="text-[var(--text-muted)] text-sm mb-6">Sign in to continue</p>
         <input
           className="w-full p-3 bg-[var(--surface2)] border border-[var(--border)] rounded text-[var(--text)] placeholder:text-[var(--text-dim)] focus:border-[var(--accent)] focus:outline-none"

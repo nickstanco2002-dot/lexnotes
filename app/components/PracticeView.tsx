@@ -50,7 +50,7 @@ export default function PracticeView() {
         <div className="flex-1 flex flex-col items-center justify-center p-10">
           <div className="text-center max-w-sm">
             <div className="text-5xl mb-6">⚖️</div>
-            <h2 className="text-2xl font-[family-name:'Playfair_Display'] mb-2">Ready for Practice?</h2>
+            <h2 className="text-2xl font-display mb-2">Ready for Practice?</h2>
             <p className="text-[13px] text-[var(--text-muted)] mb-6">Generate a random Torts hypo and test your IRAC analysis.</p>
             <button 
               onClick={startExam}
@@ -64,7 +64,7 @@ export default function PracticeView() {
         <div className="flex-1 flex overflow-hidden">
           {/* Fact Pattern */}
           <div className="w-1/2 p-8 overflow-y-auto border-r border-[var(--border)] bg-[var(--surface)]">
-            <div className="text-[10px] font-bold text-[var(--accent)] tracking-widest uppercase mb-4 font-[family-name:'JetBrains_Mono']">Exam Fact Pattern</div>
+            <div className="text-[10px] font-bold text-[var(--accent)] tracking-widest uppercase mb-4 font-mono-ui">Exam Fact Pattern</div>
             <div className="text-[15px] leading-relaxed font-serif text-[var(--text)] whitespace-pre-wrap">
               {hypo}
             </div>
@@ -79,7 +79,7 @@ export default function PracticeView() {
                 </div>
                 <div className="bg-[var(--surface2)] border border-[var(--border)] p-4 rounded-lg text-[13px] leading-relaxed space-y-4">
                   <p>{feedback.critique}</p>
-                  <div className="grid grid-cols-4 gap-2 text-center text-[10px] font-[family-name:'JetBrains_Mono']">
+                  <div className="grid grid-cols-4 gap-2 text-center text-[10px] font-mono-ui">
                     <div className="p-2 border border-[var(--border)] rounded">
                       <div className="font-bold text-[var(--blue)]">ISSUE</div>
                       <div className="text-[var(--accent)]">{feedback.iracScore.issue}/10</div>
@@ -108,10 +108,10 @@ export default function PracticeView() {
             ) : (
               <>
                 <div className="mb-3">
-                  <label className="text-[10px] font-bold text-[var(--accent)] tracking-widest uppercase font-[family-name:'JetBrains_Mono']">Your IRAC Analysis</label>
+                  <label className="text-[10px] font-bold text-[var(--accent)] tracking-widest uppercase font-mono-ui">Your IRAC Analysis</label>
                 </div>
                 <textarea 
-                  className="flex-1 bg-[var(--surface2)] border border-[var(--border)] rounded-md p-4 outline-none resize-none text-[14px] leading-relaxed font-[family-name:'DM_Sans'] text-[var(--text)] focus:border-[var(--accent)] transition-colors placeholder:text-[var(--text-dim)]"
+                  className="flex-1 bg-[var(--surface2)] border border-[var(--border)] rounded-md p-4 outline-none resize-none text-[14px] leading-relaxed font-sans-ui text-[var(--text)] focus:border-[var(--accent)] transition-colors placeholder:text-[var(--text-dim)]"
                   placeholder="Begin your analysis here. Structure: Issue → Rule → Application → Conclusion..."
                   value={answer}
                   onChange={(e) => setAnswer(e.target.value)}

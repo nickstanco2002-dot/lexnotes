@@ -89,18 +89,18 @@ export default function NotesView() {
                 <span className="text-[13px] font-medium text-[var(--text)]">Torts</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-[family-name:'JetBrains_Mono'] text-[var(--text-dim)] bg-[var(--surface3)] px-1.5 py-[1px] rounded-full">12</span>
+                <span className="text-[10px] font-mono-ui text-[var(--text-dim)] bg-[var(--surface3)] px-1.5 py-[1px] rounded-full">12</span>
                 <span className="text-[10px] text-[var(--text-dim)]">▾</span>
               </div>
             </div>
             <div className="py-0.5 pb-1.5">
               <div className="flex items-center px-3.5 pl-[30px] py-1.5 text-[12.5px] cursor-pointer text-[var(--accent)] border-l-2 border-[var(--accent)] bg-[var(--accent-dim)]">
                 <span className="text-[8px] mr-2 opacity-50">⬡</span> Negligence
-                <span className="ml-auto text-[10px] font-[family-name:'JetBrains_Mono'] text-[var(--text-dim)]">5</span>
+                <span className="ml-auto text-[10px] font-mono-ui text-[var(--text-dim)]">5</span>
               </div>
               <div className="flex items-center px-3.5 pl-[30px] py-1.5 text-[12.5px] cursor-pointer text-[var(--text-muted)] border-l-2 border-transparent hover:bg-[var(--surface2)] hover:text-[var(--text)]">
                 <span className="text-[8px] mr-2 opacity-50">⬡</span> Assault & Battery
-                <span className="ml-auto text-[10px] font-[family-name:'JetBrains_Mono'] text-[var(--text-dim)]">3</span>
+                <span className="ml-auto text-[10px] font-mono-ui text-[var(--text-dim)]">3</span>
               </div>
               <div className="px-3.5 pl-[30px] py-1 text-[11.5px] text-[var(--text-dim)] cursor-pointer hover:text-[var(--accent)] mt-1">+ Add Topic</div>
             </div>
@@ -112,7 +112,7 @@ export default function NotesView() {
                 <span className="text-[13px] font-medium text-[var(--text)]">Contracts</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-[family-name:'JetBrains_Mono'] text-[var(--text-dim)] bg-[var(--surface3)] px-1.5 py-[1px] rounded-full">18</span>
+                <span className="text-[10px] font-mono-ui text-[var(--text-dim)] bg-[var(--surface3)] px-1.5 py-[1px] rounded-full">18</span>
                 <span className="text-[10px] text-[var(--text-dim)]">▸</span>
               </div>
             </div>
@@ -133,36 +133,36 @@ export default function NotesView() {
 
         <div className="p-3.5 pb-3 border-b border-[var(--border)] flex items-center justify-between">
           <div>
-            <div className="text-[11px] text-[var(--text-muted)] font-[family-name:'JetBrains_Mono'] uppercase tracking-[1px] mb-0.5">Torts</div>
+            <div className="text-[11px] text-[var(--text-muted)] font-mono-ui uppercase tracking-[1px] mb-0.5">Torts</div>
             <div className="text-[14px] font-semibold">Negligence</div>
           </div>
           <button className="bg-[var(--accent)] text-black px-2.5 py-1 rounded-[var(--radius)] text-[11px] font-medium hover:bg-[var(--accent2)]">+</button>
         </div>
 
         <div className="flex gap-1.5 p-2 px-3 border-b border-[var(--border)] flex-wrap">
-          <span className="bg-[var(--accent-dim)] text-[var(--accent)] border border-[rgba(201,168,76,0.35)] px-2 py-0.5 rounded-full text-[10px] font-[family-name:'JetBrains_Mono'] cursor-pointer">All</span>
-          <span className="bg-[var(--surface2)] text-[var(--text-muted)] border border-[var(--border)] hover:text-[var(--text)] hover:border-[var(--text-dim)] px-2 py-0.5 rounded-full text-[10px] font-[family-name:'JetBrains_Mono'] cursor-pointer">📋 Brief</span>
-          <span className="bg-[var(--surface2)] text-[var(--text-muted)] border border-[var(--border)] hover:text-[var(--text)] hover:border-[var(--text-dim)] px-2 py-0.5 rounded-full text-[10px] font-[family-name:'JetBrains_Mono'] cursor-pointer">✎ Class</span>
+          <span className="bg-[var(--accent-dim)] text-[var(--accent)] border border-[rgba(201,168,76,0.35)] px-2 py-0.5 rounded-full text-[10px] font-mono-ui cursor-pointer">All</span>
+          <span className="bg-[var(--surface2)] text-[var(--text-muted)] border border-[var(--border)] hover:text-[var(--text)] hover:border-[var(--text-dim)] px-2 py-0.5 rounded-full text-[10px] font-mono-ui cursor-pointer">📋 Brief</span>
+          <span className="bg-[var(--surface2)] text-[var(--text-muted)] border border-[var(--border)] hover:text-[var(--text)] hover:border-[var(--text-dim)] px-2 py-0.5 rounded-full text-[10px] font-mono-ui cursor-pointer">✎ Class</span>
         </div>
 
         <div className="flex-1 overflow-y-auto p-1.5 px-2">
           <div className="p-2.5 rounded-r-md cursor-pointer bg-[var(--surface2)] border-l-2 border-[var(--accent)] mb-0.5">
             <div className="flex items-center justify-between mb-1">
-              <div className="text-[9px] font-bold tracking-[1.5px] uppercase font-[family-name:'JetBrains_Mono'] text-[#5b8dee]">📋 Case Brief</div>
+              <div className="text-[9px] font-bold tracking-[1.5px] uppercase font-mono-ui text-[#5b8dee]">📋 Case Brief</div>
             </div>
             <div className="text-[12.5px] font-medium mb-0.5 leading-snug">Palsgraf v. Long Island RR</div>
             <div className="text-[11px] text-[var(--text-muted)] whitespace-nowrap overflow-hidden text-ellipsis">Proximate cause — duty owed only to foreseeable plaintiffs...</div>
-            <div className="text-[10px] text-[var(--text-dim)] mt-1 font-[family-name:'JetBrains_Mono']">Feb 13, 2025</div>
+            <div className="text-[10px] text-[var(--text-dim)] mt-1 font-mono-ui">Feb 13, 2025</div>
           </div>
 
           <div className="p-2.5 rounded-md cursor-pointer hover:bg-[var(--surface2)] border-l-2 border-transparent mb-0.5">
             <div className="flex items-center justify-between mb-1">
-              <div className="text-[9px] font-bold tracking-[1.5px] uppercase font-[family-name:'JetBrains_Mono'] text-[#e05555]">✎ Class Notes</div>
-              <span className="text-[9px] bg-[rgba(201,168,76,0.1)] text-[var(--accent)] border border-[rgba(201,168,76,0.2)] px-1.5 rounded-sm font-[family-name:'JetBrains_Mono']">🎙 Audio</span>
+              <div className="text-[9px] font-bold tracking-[1.5px] uppercase font-mono-ui text-[#e05555]">✎ Class Notes</div>
+              <span className="text-[9px] bg-[rgba(201,168,76,0.1)] text-[var(--accent)] border border-[rgba(201,168,76,0.2)] px-1.5 rounded-sm font-mono-ui">🎙 Audio</span>
             </div>
             <div className="text-[12.5px] font-medium mb-0.5 leading-snug">Negligence — Feb 12</div>
             <div className="text-[11px] text-[var(--text-muted)] whitespace-nowrap overflow-hidden text-ellipsis">Reasonable person standard, Hand Formula...</div>
-            <div className="text-[10px] text-[var(--text-dim)] mt-1 font-[family-name:'JetBrains_Mono']">Feb 12, 2025</div>
+            <div className="text-[10px] text-[var(--text-dim)] mt-1 font-mono-ui">Feb 12, 2025</div>
           </div>
         </div>
       </div>
@@ -174,18 +174,18 @@ export default function NotesView() {
           <div className="flex items-center gap-2 p-2 px-4 border-b border-[var(--border)] bg-[var(--surface)] shrink-0">
             <button 
               onClick={() => { setNavCollapsed(false); setListCollapsed(false); }}
-              className="bg-[var(--surface2)] border border-[var(--border)] rounded px-2.5 py-1 text-[11px] text-[var(--text-muted)] font-[family-name:'JetBrains_Mono'] hover:text-[var(--accent)]"
+              className="bg-[var(--surface2)] border border-[var(--border)] rounded px-2.5 py-1 text-[11px] text-[var(--text-muted)] font-mono-ui hover:text-[var(--accent)]"
             >
               ›› Show panels
             </button>
-            <span className="text-[10px] font-[family-name:'JetBrains_Mono'] text-[var(--text-dim)] tracking-[1px]">Focus Mode</span>
-            <span className="text-[10px] font-[family-name:'JetBrains_Mono'] bg-[var(--accent-dim)] text-[var(--accent)] border border-[rgba(201,168,76,0.25)] rounded-full px-2 py-0.5">Torts › Negligence</span>
+            <span className="text-[10px] font-mono-ui text-[var(--text-dim)] tracking-[1px]">Focus Mode</span>
+            <span className="text-[10px] font-mono-ui bg-[var(--accent-dim)] text-[var(--accent)] border border-[rgba(201,168,76,0.25)] rounded-full px-2 py-0.5">Torts › Negligence</span>
           </div>
         )}
 
         <div className="p-2.5 px-5 border-b border-[var(--border)] flex items-center gap-2.5 bg-[var(--surface)]">
-          <span className="bg-[rgba(91,141,238,0.1)] text-[#5b8dee] border border-[rgba(91,141,238,0.2)] px-2 py-0.5 rounded-full text-[10px] font-semibold font-[family-name:'JetBrains_Mono'] tracking-[0.5px]">📋 Case Brief</span>
-          <span className="text-[11px] text-[var(--text-muted)] font-[family-name:'JetBrains_Mono']">Torts › Negligence</span>
+          <span className="bg-[rgba(91,141,238,0.1)] text-[#5b8dee] border border-[rgba(91,141,238,0.2)] px-2 py-0.5 rounded-full text-[10px] font-semibold font-mono-ui tracking-[0.5px]">📋 Case Brief</span>
+          <span className="text-[11px] text-[var(--text-muted)] font-mono-ui">Torts › Negligence</span>
           <div className="flex-1"></div>
           <button className="bg-[var(--surface2)] text-[var(--text-muted)] border border-[var(--border)] hover:text-[var(--text)] hover:border-[var(--text-dim)] px-3 py-1.5 rounded-[var(--radius)] text-[12px] font-medium transition-colors">⇌ Merge w/ Auto Notes</button>
           <button onClick={() => setAiOpen(!aiOpen)} className="bg-[var(--surface2)] text-[var(--text-muted)] border border-[var(--border)] hover:text-[var(--text)] hover:border-[var(--text-dim)] px-3 py-1.5 rounded-[var(--radius)] text-[12px] font-medium transition-colors">⚡ AI</button>
@@ -195,10 +195,10 @@ export default function NotesView() {
           <div className="flex-1 overflow-y-auto py-11 px-0 flex flex-col items-center">
             <div className="w-full max-w-[700px] px-12 box-border">
               <input 
-                className="font-[family-name:'Playfair_Display'] text-[28px] font-bold text-[var(--text)] bg-transparent border-none outline-none w-full mb-1.5 tracking-[-0.3px] leading-snug" 
+                className="font-display text-[28px] font-bold text-[var(--text)] bg-transparent border-none outline-none w-full mb-1.5 tracking-[-0.3px] leading-snug" 
                 defaultValue="Palsgraf v. Long Island RR (1928)" 
               />
-              <div className="text-[11px] text-[var(--text-dim)] font-[family-name:'JetBrains_Mono'] mb-7 flex gap-3 flex-wrap pb-5 border-b border-[var(--border)]">
+              <div className="text-[11px] text-[var(--text-dim)] font-mono-ui mb-7 flex gap-3 flex-wrap pb-5 border-b border-[var(--border)]">
                 <span>Torts › Negligence</span><span>·</span><span>248 N.Y. 339</span><span>·</span><span>Prof. Chen</span>
               </div>
 
@@ -208,9 +208,9 @@ export default function NotesView() {
                 { label: 'Rule / Holding', val: 'No duty — and thus no liability — to unforeseeable plaintiffs. Duty is relational...' },
               ].map((sec, i) => (
                 <div key={i} className="mb-6">
-                  <label className="text-[9px] font-bold tracking-[2.5px] uppercase text-[var(--accent)] font-[family-name:'JetBrains_Mono'] mb-2 block opacity-80">{sec.label}</label>
+                  <label className="text-[9px] font-bold tracking-[2.5px] uppercase text-[var(--accent)] font-mono-ui mb-2 block opacity-80">{sec.label}</label>
                   <textarea 
-                    className="bg-transparent border border-[var(--border)] rounded-md p-3 text-[13.5px] leading-relaxed text-[var(--text)] outline-none w-full min-h-[60px] resize-none font-[family-name:'DM_Sans'] transition-colors focus:border-[rgba(201,168,76,0.5)] focus:bg-[rgba(201,168,76,0.03)]"
+                    className="bg-transparent border border-[var(--border)] rounded-md p-3 text-[13.5px] leading-relaxed text-[var(--text)] outline-none w-full min-h-[60px] resize-none font-sans-ui transition-colors focus:border-[rgba(201,168,76,0.5)] focus:bg-[rgba(201,168,76,0.03)]"
                     defaultValue={sec.val}
                     aria-label={sec.label}
                   />
@@ -222,7 +222,7 @@ export default function NotesView() {
           {aiOpen && (
             <div className="w-[320px] border-l border-[var(--border)] bg-[var(--surface)] flex flex-col shrink-0">
               <div className="p-3 px-4 border-b border-[var(--border)] flex items-center justify-between">
-                <div className="text-[11px] font-semibold text-[var(--accent)] uppercase tracking-[1.5px] font-[family-name:'JetBrains_Mono'] flex items-center gap-1.5">
+                <div className="text-[11px] font-semibold text-[var(--accent)] uppercase tracking-[1.5px] font-mono-ui flex items-center gap-1.5">
                   <div className="w-1.5 h-1.5 rounded-full bg-[var(--green)] animate-pulse"></div>
                   AI Assistant
                 </div>

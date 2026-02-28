@@ -13,7 +13,7 @@ export default function Topbar({ activeView, triggerToast }: { activeView: strin
 
   return (
     <div className="topbar-blur h-[56px] border-b border-[var(--border)] flex items-center px-6 gap-4 bg-[var(--surface)] shrink-0">
-      <div className="font-[family-name:'Playfair_Display'] text-[18px] font-bold text-[var(--text)] flex-1 capitalize">
+      <div className="font-display text-[18px] font-bold text-[var(--text)] flex-1 capitalize">
         {titles[activeView] || activeView}
       </div>
       <button onClick={handleCta} className="px-3.5 py-1.5 rounded-[var(--radius)] text-[12.5px] font-medium bg-[var(--accent)] text-black hover:bg-[var(--accent2)] transition-colors">

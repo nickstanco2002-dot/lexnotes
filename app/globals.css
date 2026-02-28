@@ -1,7 +1,6 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
 
 :root {
@@ -22,12 +21,34 @@
   --radius: 8px;
 }
 
+* {
+  box-sizing: border-box;
+}
+
+html,
 body {
-  font-family: 'DM Sans', sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "DM Sans", sans-serif;
   background-color: var(--bg);
   color: var(--text);
   height: 100vh;
   overflow: hidden;
+}
+
+.font-display {
+  font-family: "Playfair Display", serif;
+}
+
+.font-mono-ui {
+  font-family: "JetBrains Mono", monospace;
+}
+
+.font-sans-ui {
+  font-family: "DM Sans", sans-serif;
 }
 
 /* Custom Scrollbar */

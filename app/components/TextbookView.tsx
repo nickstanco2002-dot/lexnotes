@@ -26,7 +26,7 @@ export default function TextbookView() {
         <div className="flex-1 flex flex-col items-center justify-center p-10">
           <div className="w-full max-w-md border-2 border-dashed border-[var(--border)] rounded-2xl p-12 text-center hover:border-[var(--accent)] transition-colors group">
             <div className="text-4xl mb-4 opacity-50 group-hover:scale-110 transition-transform">📚</div>
-            <h2 className="text-xl font-semibold mb-2 font-[family-name:'Playfair_Display']">Upload Textbook</h2>
+            <h2 className="text-xl font-semibold mb-2 font-display">Upload Textbook</h2>
             <p className="text-[13px] text-[var(--text-muted)] mb-6">Drop your Casebook PDF here to start intelligent reading.</p>
             <label className="bg-[var(--accent)] text-black px-6 py-2.5 rounded-[var(--radius)] font-medium cursor-pointer hover:bg-[var(--accent2)] transition-colors">
               {isUploading ? "Processing PDF..." : "Select File"}
@@ -37,7 +37,7 @@ export default function TextbookView() {
       ) : (
         <div className="flex-1 flex overflow-hidden">
           <div className="flex-1 bg-[var(--surface2)] flex flex-col overflow-hidden border-r border-[var(--border)]">
-            <div className="h-10 bg-[var(--surface)] border-b border-[var(--border)] flex items-center px-4 justify-between text-[11px] font-[family-name:'JetBrains_Mono'] text-[var(--text-muted)]">
+            <div className="h-10 bg-[var(--surface)] border-b border-[var(--border)] flex items-center px-4 justify-between text-[11px] font-mono-ui text-[var(--text-muted)]">
               <span>{activeBook}</span>
               <div className="flex gap-4">
                 <span>Page 124 of 850</span>
