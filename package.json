@@ -3,11 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "prebuild": "node scripts/compile-skeleton.js && cp lexnotes-skeleton.html public/lexnotes-skeleton.html",
-    "dev": "node scripts/compile-skeleton.js && cp lexnotes-skeleton.html public/lexnotes-skeleton.html && next dev -p 3000",
+    "prebuild": "node scripts/compile-skeleton.js",
+    "dev": "node scripts/compile-skeleton.js && next dev -p 3000",
     "build": "next build",
     "start": "next start -p 3000",
-    "sync:skeleton": "node scripts/compile-skeleton.js && cp lexnotes-skeleton.html public/lexnotes-skeleton.html"
+    "sync:skeleton": "node scripts/compile-skeleton.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "latest",

@@ -1657,10 +1657,31 @@ function DocsView({docs,setDocs,onToast}){
   const [tF,setTF]=useState('all');
   const [panCol,setPanCol]=useState(false);
   const [modal,setModal]=useState(false);
+  const [activeDocId,setActiveDocId]=useState(null);
   const [dName,setDName]=useState('');
   const [dType,setDType]=useState('docx');
   const [dCourse,setDCourse]=useState('');
   const [dTmpl,setDTmpl]=useState('Blank');
+
+  const activeDoc=docs.find(d=>d.id===activeDocId)||null;
+
+  function updateDoc(id,patch){
+    setDocs(p=>p.map(d=>d.id===id?{...d,...patch,modified:'Just now'}:d));
+  }
+
+  function makeDocContent(type,tmpl){
+    if(type==='xlsx'){
+      return {sheetName:tmpl==='Grade Tracker'?'Grades':'Sheet1',rows:Array.from({length:12},()=>Array.from({length:6},()=>''))};
+    }
+    if(type==='form'){
+      const base=tmpl==='Issue Spotter'
+        ?['Identify cause of action','State rule','Apply facts','Counterarguments','Conclusion']
+        :['Item 1','Item 2','Item 3'];
+      return {items:base.map(t=>({id:nextId(),text:t,done:false}))};
+    }
+    const header=tmpl&&tmpl!=='Blank'?`${tmpl}\n\n`:'';
+    return {body:`${header}Start writing...`};
+  }
 
   const filtered=docs.filter(d=>{
     if(cF!=='all'&&d.course!==cF)return false;
@@ -1671,8 +1692,53 @@ function DocsView({docs,setDocs,onToast}){
   function create(){
     if(!dName.trim()){onToast('Enter a document name');return;}
     const icons={docx:'📝',xlsx:'📊',form:'📋'};
-    setDocs(p=>[{id:nextId(),icon:icons[dType]||'📝',name:dName,type:dType,course:dCourse,modified:'Just now'},...p]);
-    setModal(false);setDName('');onToast('✓ Document created');
+    const id=nextId();
+    const doc={id,icon:icons[dType]||'📝',name:dName,type:dType,course:dCourse,modified:'Just now',template:dTmpl,content:makeDocContent(dType,dTmpl)};
+    setDocs(p=>[doc,...p]);
+    setActiveDocId(id);
+    setModal(false);setDName('');
+    onToast('Document created and opened');
+  }
+
+  function openDoc(doc){
+    if(!doc.content){
+      updateDoc(doc.id,{content:makeDocContent(doc.type,doc.template||'Blank')});
+    }
+    setActiveDocId(doc.id);
+  }
+
+  function closeDoc(){
+    setActiveDocId(null);
+  }
+
+  function setDocBody(v){
+    if(!activeDoc)return;
+    updateDoc(activeDoc.id,{content:{...(activeDoc.content||{}),body:v}});
+  }
+
+  function setSheetCell(r,c,v){
+    if(!activeDoc)return;
+    const cur=(activeDoc.content&&activeDoc.content.rows)||Array.from({length:12},()=>Array.from({length:6},()=>''));;
+    const rows=cur.map((row,ri)=>ri===r?row.map((cell,ci)=>ci===c?v:cell):row);
+    updateDoc(activeDoc.id,{content:{...(activeDoc.content||{}),rows}});
+  }
+
+  function toggleFormItem(id){
+    if(!activeDoc)return;
+    const items=(activeDoc.content&&activeDoc.content.items)||[];
+    updateDoc(activeDoc.id,{content:{...(activeDoc.content||{}),items:items.map(x=>x.id===id?{...x,done:!x.done}:x)}});
+  }
+
+  function setFormItem(id,text){
+    if(!activeDoc)return;
+    const items=(activeDoc.content&&activeDoc.content.items)||[];
+    updateDoc(activeDoc.id,{content:{...(activeDoc.content||{}),items:items.map(x=>x.id===id?{...x,text}:x)}});
+  }
+
+  function addFormItem(){
+    if(!activeDoc)return;
+    const items=(activeDoc.content&&activeDoc.content.items)||[];
+    updateDoc(activeDoc.id,{content:{...(activeDoc.content||{}),items:[...items,{id:nextId(),text:'New item',done:false}]}})
   }
 
   return(
@@ -1708,11 +1774,12 @@ function DocsView({docs,setDocs,onToast}){
       <div className="docs-main">
         {panCol&&<div className="focus-bar"><button className="btn btn-ghost btn-sm" onClick={()=>setPanCol(false)}>›› Show panel</button><span style={{fontSize:9.5,color:'var(--dim)',fontFamily:'JetBrains Mono,monospace'}}>Full-screen view</span></div>}
         <div className="docs-tb">
-          <span style={{fontSize:13,fontWeight:600}}>{cF==='all'&&tF==='all'?'All Documents':cF!=='all'?COURSES.find(c=>c.id===cF)?.label:tF}</span>
+          <span style={{fontSize:13,fontWeight:600}}>{activeDoc?activeDoc.name:(cF==='all'&&tF==='all'?'All Documents':cF!=='all'?COURSES.find(c=>c.id===cF)?.label:tF)}</span>
           <div style={{flex:1}}/>
+          {activeDoc&&<button className="btn btn-ghost btn-sm" onClick={closeDoc}>← Back to Library</button>}
           <button className="btn btn-primary btn-sm" onClick={()=>setModal(true)}>+ New Document</button>
         </div>
-        <div className="docs-quick">
+        {!activeDoc&&<div className="docs-quick">
           {[{ic:'📝',l:'Word Document',s:'Memos, briefs, essays',t:'docx'},{ic:'📊',l:'Spreadsheet',s:'Case trackers, grades',t:'xlsx'},{ic:'📋',l:'Form / Checklist',s:'Issue spotters, rubrics',t:'form'},{ic:'⚡',l:'From Template',s:'Legal memo, case chart',t:'docx'}].map(b=>(
             <div key={b.l} className="dqbtn" onClick={()=>{setDType(b.t);setModal(true);}}>
               <div style={{fontSize:19,marginBottom:5}}>{b.ic}</div>
@@ -1720,14 +1787,14 @@ function DocsView({docs,setDocs,onToast}){
               <div style={{fontSize:10,color:'var(--muted)',marginTop:1}}>{b.s}</div>
             </div>
           ))}
-        </div>
+        </div>}
         <div style={{flex:1,overflowY:'auto',padding:16}}>
-          {filtered.length===0?<div style={{textAlign:'center',padding:40,color:'var(--dim)'}}>No documents found.</div>:(
+          {!activeDoc?(filtered.length===0?<div style={{textAlign:'center',padding:40,color:'var(--dim)'}}>No documents found.</div>:(
             <div className="docs-grid">
               {filtered.map(d=>{
                 const course=COURSES.find(c=>c.id===d.course);
                 return(
-                  <div key={d.id} className="dcard" onClick={()=>onToast(`Opening "${d.name}"…`)}>
+                  <div key={d.id} className="dcard" onClick={()=>openDoc(d)}>
                     <div className="dicon">{d.icon}</div>
                     <div className="dname">{d.name}</div>
                     <div className="dmeta">{d.modified}</div>
@@ -1737,6 +1804,62 @@ function DocsView({docs,setDocs,onToast}){
                   </div>
                 );
               })}
+            </div>
+          )):(
+            <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:10,padding:14,minHeight:'100%'}}>
+              <div style={{fontSize:10.5,color:'var(--dim)',fontFamily:'JetBrains Mono,monospace',marginBottom:10}}>
+                {activeDoc.type==='docx'?'Word Document':activeDoc.type==='xlsx'?'Spreadsheet':'Form'} · {activeDoc.modified}
+              </div>
+
+              {activeDoc.type==='docx'&&(
+                <textarea
+                  className="ebody"
+                  style={{minHeight:420,padding:0}}
+                  value={(activeDoc.content&&activeDoc.content.body)||''}
+                  onChange={e=>setDocBody(e.target.value)}
+                />
+              )}
+
+              {activeDoc.type==='xlsx'&&(
+                <div style={{overflow:'auto',border:'1px solid var(--border)',borderRadius:8}}>
+                  <table style={{borderCollapse:'collapse',width:'100%',minWidth:720}}>
+                    <thead>
+                      <tr>
+                        <th style={{borderBottom:'1px solid var(--border)',padding:8,fontSize:10,color:'var(--dim)',textAlign:'left',width:36}}>#</th>
+                        {Array.from({length:6},(_,i)=><th key={i} style={{borderBottom:'1px solid var(--border)',padding:8,fontSize:10,color:'var(--dim)',textAlign:'left'}}>{String.fromCharCode(65+i)}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {((activeDoc.content&&activeDoc.content.rows)||[]).map((row,ri)=>(
+                        <tr key={ri}>
+                          <td style={{borderBottom:'1px solid var(--border)',padding:8,fontSize:10,color:'var(--dim)'}}>{ri+1}</td>
+                          {row.map((cell,ci)=>(
+                            <td key={ci} style={{borderBottom:'1px solid var(--border)',padding:4}}>
+                              <input className="inp" style={{padding:'6px 8px',fontSize:12}} value={cell} onChange={e=>setSheetCell(ri,ci,e.target.value)}/>
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {activeDoc.type==='form'&&(
+                <div>
+                  <div style={{display:'flex',justifyContent:'flex-end',marginBottom:8}}>
+                    <button className="btn btn-ghost btn-sm" onClick={addFormItem}>+ Add Item</button>
+                  </div>
+                  <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                    {((activeDoc.content&&activeDoc.content.items)||[]).map(item=>(
+                      <label key={item.id} style={{display:'flex',alignItems:'center',gap:8,background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:8,padding:8}}>
+                        <input type="checkbox" checked={!!item.done} onChange={()=>toggleFormItem(item.id)}/>
+                        <input className="inp" value={item.text} onChange={e=>setFormItem(item.id,e.target.value)} style={{padding:'6px 8px',fontSize:12,textDecoration:item.done?'line-through':'none'}}/>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

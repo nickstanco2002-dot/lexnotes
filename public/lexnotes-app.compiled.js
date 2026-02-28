@@ -2813,10 +2813,45 @@ function DocsView({
   const [tF, setTF] = useState('all');
   const [panCol, setPanCol] = useState(false);
   const [modal, setModal] = useState(false);
+  const [activeDocId, setActiveDocId] = useState(null);
   const [dName, setDName] = useState('');
   const [dType, setDType] = useState('docx');
   const [dCourse, setDCourse] = useState('');
   const [dTmpl, setDTmpl] = useState('Blank');
+  const activeDoc = docs.find(d => d.id === activeDocId) || null;
+  function updateDoc(id, patch) {
+    setDocs(p => p.map(d => d.id === id ? {
+      ...d,
+      ...patch,
+      modified: 'Just now'
+    } : d));
+  }
+  function makeDocContent(type, tmpl) {
+    if (type === 'xlsx') {
+      return {
+        sheetName: tmpl === 'Grade Tracker' ? 'Grades' : 'Sheet1',
+        rows: Array.from({
+          length: 12
+        }, () => Array.from({
+          length: 6
+        }, () => ''))
+      };
+    }
+    if (type === 'form') {
+      const base = tmpl === 'Issue Spotter' ? ['Identify cause of action', 'State rule', 'Apply facts', 'Counterarguments', 'Conclusion'] : ['Item 1', 'Item 2', 'Item 3'];
+      return {
+        items: base.map(t => ({
+          id: nextId(),
+          text: t,
+          done: false
+        }))
+      };
+    }
+    const header = tmpl && tmpl !== 'Blank' ? `${tmpl}\n\n` : '';
+    return {
+      body: `${header}Start writing...`
+    };
+  }
   const filtered = docs.filter(d => {
     if (cF !== 'all' && d.course !== cF) return false;
     if (tF !== 'all' && d.type !== tF) return false;
@@ -2832,17 +2867,98 @@ function DocsView({
       xlsx: '📊',
       form: '📋'
     };
-    setDocs(p => [{
-      id: nextId(),
+    const id = nextId();
+    const doc = {
+      id,
       icon: icons[dType] || '📝',
       name: dName,
       type: dType,
       course: dCourse,
-      modified: 'Just now'
-    }, ...p]);
+      modified: 'Just now',
+      template: dTmpl,
+      content: makeDocContent(dType, dTmpl)
+    };
+    setDocs(p => [doc, ...p]);
+    setActiveDocId(id);
     setModal(false);
     setDName('');
-    onToast('✓ Document created');
+    onToast('Document created and opened');
+  }
+  function openDoc(doc) {
+    if (!doc.content) {
+      updateDoc(doc.id, {
+        content: makeDocContent(doc.type, doc.template || 'Blank')
+      });
+    }
+    setActiveDocId(doc.id);
+  }
+  function closeDoc() {
+    setActiveDocId(null);
+  }
+  function setDocBody(v) {
+    if (!activeDoc) return;
+    updateDoc(activeDoc.id, {
+      content: {
+        ...(activeDoc.content || {}),
+        body: v
+      }
+    });
+  }
+  function setSheetCell(r, c, v) {
+    if (!activeDoc) return;
+    const cur = activeDoc.content && activeDoc.content.rows || Array.from({
+      length: 12
+    }, () => Array.from({
+      length: 6
+    }, () => ''));
+    ;
+    const rows = cur.map((row, ri) => ri === r ? row.map((cell, ci) => ci === c ? v : cell) : row);
+    updateDoc(activeDoc.id, {
+      content: {
+        ...(activeDoc.content || {}),
+        rows
+      }
+    });
+  }
+  function toggleFormItem(id) {
+    if (!activeDoc) return;
+    const items = activeDoc.content && activeDoc.content.items || [];
+    updateDoc(activeDoc.id, {
+      content: {
+        ...(activeDoc.content || {}),
+        items: items.map(x => x.id === id ? {
+          ...x,
+          done: !x.done
+        } : x)
+      }
+    });
+  }
+  function setFormItem(id, text) {
+    if (!activeDoc) return;
+    const items = activeDoc.content && activeDoc.content.items || [];
+    updateDoc(activeDoc.id, {
+      content: {
+        ...(activeDoc.content || {}),
+        items: items.map(x => x.id === id ? {
+          ...x,
+          text
+        } : x)
+      }
+    });
+  }
+  function addFormItem() {
+    if (!activeDoc) return;
+    const items = activeDoc.content && activeDoc.content.items || [];
+    updateDoc(activeDoc.id, {
+      content: {
+        ...(activeDoc.content || {}),
+        items: [...items, {
+          id: nextId(),
+          text: 'New item',
+          done: false
+        }]
+      }
+    });
   }
   return React.createElement("div", {
     className: "view active docs-layout afu",
@@ -3017,14 +3133,17 @@ function DocsView({
       fontSize: 13,
       fontWeight: 600
     }
-  }, cF === 'all' && tF === 'all' ? 'All Documents' : cF !== 'all' ? COURSES.find(c => c.id === cF)?.label : tF), React.createElement("div", {
+  }, activeDoc ? activeDoc.name : cF === 'all' && tF === 'all' ? 'All Documents' : cF !== 'all' ? COURSES.find(c => c.id === cF)?.label : tF), React.createElement("div", {
     style: {
       flex: 1
     }
-  }), React.createElement("button", {
+  }), activeDoc && React.createElement("button", {
+    className: "btn btn-ghost btn-sm",
+    onClick: closeDoc
+  }, "\u2190 Back to Library"), React.createElement("button", {
     className: "btn btn-primary btn-sm",
     onClick: () => setModal(true)
-  }, "+ New Document")), React.createElement("div", {
+  }, "+ New Document")), !activeDoc && React.createElement("div", {
     className: "docs-quick"
   }, [{
     ic: '📝',
@@ -3075,7 +3194,7 @@ function DocsView({
       overflowY: 'auto',
       padding: 16
     }
-  }, filtered.length === 0 ? React.createElement("div", {
+  }, !activeDoc ? filtered.length === 0 ? React.createElement("div", {
     style: {
       textAlign: 'center',
       padding: 40,
@@ -3088,7 +3207,7 @@ function DocsView({
     return React.createElement("div", {
       key: d.id,
       className: "dcard",
-      onClick: () => onToast(`Opening "${d.name}"…`)
+      onClick: () => openDoc(d)
     }, React.createElement("div", {
       className: "dicon"
     }, d.icon), React.createElement("div", {
@@ -3109,7 +3228,124 @@ function DocsView({
         border: `1px solid ${course.color}44`
       }
     }, course.label)));
-  })))), React.createElement(Modal, {
+  })) : React.createElement("div", {
+    style: {
+      background: 'var(--surface)',
+      border: '1px solid var(--border)',
+      borderRadius: 10,
+      padding: 14,
+      minHeight: '100%'
+    }
+  }, React.createElement("div", {
+    style: {
+      fontSize: 10.5,
+      color: 'var(--dim)',
+      fontFamily: 'JetBrains Mono,monospace',
+      marginBottom: 10
+    }
+  }, activeDoc.type === 'docx' ? 'Word Document' : activeDoc.type === 'xlsx' ? 'Spreadsheet' : 'Form', " \xB7 ", activeDoc.modified), activeDoc.type === 'docx' && React.createElement("textarea", {
+    className: "ebody",
+    style: {
+      minHeight: 420,
+      padding: 0
+    },
+    value: activeDoc.content && activeDoc.content.body || '',
+    onChange: e => setDocBody(e.target.value)
+  }), activeDoc.type === 'xlsx' && React.createElement("div", {
+    style: {
+      overflow: 'auto',
+      border: '1px solid var(--border)',
+      borderRadius: 8
+    }
+  }, React.createElement("table", {
+    style: {
+      borderCollapse: 'collapse',
+      width: '100%',
+      minWidth: 720
+    }
+  }, React.createElement("thead", null, React.createElement("tr", null, React.createElement("th", {
+    style: {
+      borderBottom: '1px solid var(--border)',
+      padding: 8,
+      fontSize: 10,
+      color: 'var(--dim)',
+      textAlign: 'left',
+      width: 36
+    }
+  }, "#"), Array.from({
+    length: 6
+  }, (_, i) => React.createElement("th", {
+    key: i,
+    style: {
+      borderBottom: '1px solid var(--border)',
+      padding: 8,
+      fontSize: 10,
+      color: 'var(--dim)',
+      textAlign: 'left'
+    }
+  }, String.fromCharCode(65 + i))))), React.createElement("tbody", null, (activeDoc.content && activeDoc.content.rows || []).map((row, ri) => React.createElement("tr", {
+    key: ri
+  }, React.createElement("td", {
+    style: {
+      borderBottom: '1px solid var(--border)',
+      padding: 8,
+      fontSize: 10,
+      color: 'var(--dim)'
+    }
+  }, ri + 1), row.map((cell, ci) => React.createElement("td", {
+    key: ci,
+    style: {
+      borderBottom: '1px solid var(--border)',
+      padding: 4
+    }
+  }, React.createElement("input", {
+    className: "inp",
+    style: {
+      padding: '6px 8px',
+      fontSize: 12
+    },
+    value: cell,
+    onChange: e => setSheetCell(ri, ci, e.target.value)
+  })))))))), activeDoc.type === 'form' && React.createElement("div", null, React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'flex-end',
+      marginBottom: 8
+    }
+  }, React.createElement("button", {
+    className: "btn btn-ghost btn-sm",
+    onClick: addFormItem
+  }, "+ Add Item")), React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 8
+    }
+  }, (activeDoc.content && activeDoc.content.items || []).map(item => React.createElement("label", {
+    key: item.id,
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      background: 'var(--surface2)',
+      border: '1px solid var(--border)',
+      borderRadius: 8,
+      padding: 8
+    }
+  }, React.createElement("input", {
+    type: "checkbox",
+    checked: !!item.done,
+    onChange: () => toggleFormItem(item.id)
+  }), React.createElement("input", {
+    className: "inp",
+    value: item.text,
+    onChange: e => setFormItem(item.id, e.target.value),
+    style: {
+      padding: '6px 8px',
+      fontSize: 12,
+      textDecoration: item.done ? 'line-through' : 'none'
+    }
+  })))))))), React.createElement(Modal, {
     open: modal,
     onClose: () => setModal(false),
     title: "New Document",

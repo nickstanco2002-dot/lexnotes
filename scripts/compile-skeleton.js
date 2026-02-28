@@ -7,6 +7,7 @@ const presetReact = require("next/dist/compiled/babel/preset-react");
 const root = process.cwd();
 const srcHtml = path.join(root, "lexnotes-skeleton.html");
 const outJs = path.join(root, "public", "lexnotes-app.compiled.js");
+const outHtml = path.join(root, "public", "lexnotes-skeleton.html");
 
 function fail(msg) {
   console.error(`[compile-skeleton] ${msg}`);
@@ -36,3 +37,9 @@ fs.mkdirSync(path.dirname(outJs), { recursive: true });
 fs.writeFileSync(outJs, `${transformed.code}\n`, "utf8");
 console.log(`[compile-skeleton] wrote ${path.relative(root, outJs)}`);
 
+const runtimeHtml = html.replace(
+  /<script id="lexnotes-app-source" type="text\/plain">[\s\S]*?<\/script>/,
+  '<script id="lexnotes-app-source" type="text/plain"></script>'
+);
+fs.writeFileSync(outHtml, runtimeHtml, "utf8");
+console.log(`[compile-skeleton] wrote ${path.relative(root, outHtml)}`);
