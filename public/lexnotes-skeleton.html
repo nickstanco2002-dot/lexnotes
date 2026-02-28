@@ -5,9 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>LexNotes — Law School OS</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@300;400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet"/>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
 <style>
 /* ═══ DESIGN TOKENS ═══════════════════════════════════ */
 :root {
@@ -422,7 +419,7 @@ textarea{resize:none;}
 </head>
 <body>
 <div id="root"></div>
-<script type="text/babel">
+<script id="lexnotes-app-source" type="text/plain">
 const {useState,useEffect,useRef,useCallback}=React;
 
 let NEXT_ID=1000;
@@ -2438,6 +2435,73 @@ function App(){
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 try{window.parent&&window.parent!==window&&window.parent.postMessage({type:'lexnotes-ready'},window.location.origin);}catch{}
+</script>
+<script>
+(function(){
+  const root=document.getElementById('root');
+  function showBootError(msg){
+    if(!root)return;
+    root.innerHTML=
+      '<div style="height:100vh;display:grid;place-items:center;background:#0b0c0e;color:#e6e4dc;font-family:DM Sans,system-ui,sans-serif;padding:20px">'+
+        '<div style="max-width:680px;width:100%;background:#111215;border:1px solid #252830;border-radius:12px;padding:18px">'+
+          '<div style="font-size:20px;font-weight:700;margin-bottom:8px">LexNotes failed to start</div>'+
+          '<div style="font-size:13px;color:#6e7280;line-height:1.6;margin-bottom:12px">'+msg+'</div>'+
+          '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+            '<button id="lexnotes-retry" style="padding:8px 12px;border-radius:6px;border:1px solid #2e3240;background:transparent;color:#e6e4dc;cursor:pointer">Retry</button>'+
+            '<a href="/" style="padding:8px 12px;border-radius:6px;background:#c9a84c;color:#0b0c0e;text-decoration:none;font-weight:700">Reload App</a>'+
+          '</div>'+
+        '</div>'+
+      '</div>';
+    const btn=document.getElementById('lexnotes-retry');
+    if(btn)btn.onclick=()=>window.location.reload();
+  }
+
+  function loadScript(url){
+    return new Promise((resolve,reject)=>{
+      const s=document.createElement('script');
+      s.src=url;
+      s.async=true;
+      s.onload=()=>resolve(url);
+      s.onerror=()=>reject(new Error('Failed '+url));
+      document.head.appendChild(s);
+    });
+  }
+
+  async function loadWithFallback(urls,name){
+    let lastErr=null;
+    for(const u of urls){
+      try{return await loadScript(u);}catch(err){lastErr=err;}
+    }
+    throw new Error(name+' could not be loaded');
+  }
+
+  async function boot(){
+    try{
+      await loadWithFallback([
+        'https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js',
+        'https://unpkg.com/react@18.2.0/umd/react.production.min.js',
+        'https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js'
+      ],'React');
+      await loadWithFallback([
+        'https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js',
+        'https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js',
+        'https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js'
+      ],'ReactDOM');
+      await loadWithFallback([
+        'https://cdn.jsdelivr.net/npm/@babel/standalone@7.23.2/babel.min.js',
+        'https://unpkg.com/@babel/standalone@7.23.2/babel.min.js',
+        'https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js'
+      ],'Babel');
+
+      const src=document.getElementById('lexnotes-app-source')?.textContent||'';
+      const out=window.Babel.transform(src,{presets:['react']});
+      new Function(out.code)();
+    }catch(err){
+      showBootError((err&&err.message)||'Unknown startup error');
+    }
+  }
+  boot();
+})();
 </script>
 </body>
 </html>
