@@ -1,0 +1,1875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>LexNotes — Law School OS</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@300;400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+/* ═══ DESIGN TOKENS ═══════════════════════════════════ */
+:root {
+  --bg:         #0b0c0e;
+  --surface:    #111215;
+  --surface2:   #18191e;
+  --surface3:   #1f2128;
+  --border:     #252830;
+  --border2:    #2e3240;
+  --accent:     #c9a84c;
+  --accent2:    #e4c870;
+  --accent-dim: rgba(201,168,76,.11);
+  --accent-glow:rgba(201,168,76,.05);
+  --text:       #e6e4dc;
+  --muted:      #6e7280;
+  --dim:        #3e4152;
+  --red:        #d95f5f;
+  --green:      #4aab78;
+  --blue:       #5283e0;
+  --purple:     #8f67d8;
+  --r:          8px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body,#root{height:100%;overflow:hidden;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);font-size:13px;line-height:1.5;}
+input,textarea,select,button{font-family:inherit;color:inherit;}
+textarea{resize:none;}
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:99px;}
+::-webkit-scrollbar-thumb:hover{background:var(--dim);}
+
+/* ═══ ANIMATIONS ══════════════════════════════════════ */
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes recPing{0%,100%{box-shadow:0 0 0 0 rgba(217,95,95,.55)}60%{box-shadow:0 0 0 7px rgba(217,95,95,0)}}
+@keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.afu{animation:fadeUp .2s ease both;}
+.af{animation:fade .15s ease both;}
+
+/* ═══ SKELETON SHIMMER ════════════════════════════════ */
+.skel{
+  background:linear-gradient(90deg,var(--surface2) 25%,var(--surface3) 50%,var(--surface2) 75%);
+  background-size:400px 100%;
+  animation:shimmer 1.4s infinite;
+  border-radius:4px;
+}
+
+/* ═══ LAYOUT ══════════════════════════════════════════ */
+.app{display:flex;height:100vh;overflow:hidden;}
+.main{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;}
+.content{flex:1;overflow:hidden;display:flex;}
+.view{display:none;flex:1;overflow:hidden;flex-direction:column;}
+.view.active{display:flex;}
+
+/* ═══ SIDEBAR ═════════════════════════════════════════ */
+.sidebar{
+  width:232px;flex-shrink:0;
+  background:var(--surface);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  transition:width .2s ease;
+  position:relative;
+}
+.sidebar.mini{width:52px;}
+.logo{padding:16px 16px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;overflow:hidden;}
+.logo-icon{
+  width:26px;height:26px;border-radius:6px;flex-shrink:0;
+  background:var(--accent);display:flex;align-items:center;justify-content:center;
+  font-family:'Playfair Display',serif;font-size:13px;font-weight:700;color:#0b0c0e;
+}
+.logo-words{overflow:hidden;white-space:nowrap;}
+.logo-name{font-family:'Playfair Display',serif;font-size:17px;font-weight:700;color:var(--accent);letter-spacing:-.3px;}
+.logo-tag{font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;font-family:'JetBrains Mono',monospace;}
+.sb-section{padding:10px 8px 4px;}
+.sb-label{font-size:8.5px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:var(--dim);padding:0 8px;margin-bottom:4px;font-family:'JetBrains Mono',monospace;white-space:nowrap;}
+.nav{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:var(--r);cursor:pointer;font-size:12.5px;color:var(--muted);transition:all .14s;border:1px solid transparent;white-space:nowrap;user-select:none;position:relative;}
+.nav:hover{background:var(--surface2);color:var(--text);}
+.nav.on{background:var(--accent-dim);color:var(--accent);border-color:rgba(201,168,76,.18);}
+.nav-ic{font-size:14px;width:18px;text-align:center;flex-shrink:0;}
+.nav-lbl{flex:1;overflow:hidden;text-overflow:ellipsis;}
+.nav-dot{position:absolute;top:7px;right:8px;width:5px;height:5px;border-radius:50%;background:var(--red);}
+.cpill{display:flex;align-items:center;gap:7px;padding:6px 9px;border-radius:var(--r);cursor:pointer;font-size:12px;color:var(--muted);transition:all .14s;overflow:hidden;white-space:nowrap;}
+.cpill:hover{background:var(--surface2);color:var(--text);}
+.cdot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.sb-bottom{margin-top:auto;padding:10px;border-top:1px solid var(--border);}
+.ucard{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:var(--r);cursor:pointer;transition:background .14s;overflow:hidden;white-space:nowrap;}
+.ucard:hover{background:var(--surface2);}
+.avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#7a5c18);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#0b0c0e;flex-shrink:0;}
+.sb-toggle{position:absolute;right:-10px;top:22px;width:20px;height:20px;border-radius:50%;background:var(--surface2);border:1px solid var(--border2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--muted);z-index:30;transition:all .14s;}
+.sb-toggle:hover{background:var(--accent-dim);color:var(--accent);}
+
+/* ═══ TOPBAR ══════════════════════════════════════════ */
+.topbar{height:52px;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px;background:var(--surface);flex-shrink:0;}
+.tb-title{font-family:'Playfair Display',serif;font-size:16px;font-weight:700;flex:1;}
+.tb-search{display:flex;align-items:center;gap:7px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:6px 11px;width:220px;cursor:text;}
+.tb-search input{background:none;border:none;outline:none;font-size:12px;color:var(--text);width:100%;}
+.tb-search input::placeholder{color:var(--dim);}
+.tb-search-icon{font-size:12px;color:var(--muted);}
+
+/* ═══ BUTTONS ═════════════════════════════════════════ */
+.btn{padding:6px 13px;border-radius:6px;font-size:12px;font-weight:500;border:1px solid transparent;transition:all .14s;cursor:pointer;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;outline:none;}
+.btn-primary{background:var(--accent);color:#0b0c0e;font-weight:600;}
+.btn-primary:hover{background:var(--accent2);}
+.btn-ghost{background:transparent;color:var(--muted);border-color:var(--border);}
+.btn-ghost:hover{background:var(--surface2);color:var(--text);}
+.btn-ghost-danger{background:transparent;color:var(--red);border-color:rgba(217,95,95,.3);}
+.btn-ghost-danger:hover{background:rgba(217,95,95,.08);}
+.btn-sm{padding:4px 9px;font-size:11px;}
+.btn-icon{width:28px;height:28px;padding:0;justify-content:center;}
+
+/* ═══ INPUTS ══════════════════════════════════════════ */
+.inp{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 11px;font-size:12.5px;outline:none;transition:border-color .14s;}
+.inp:focus{border-color:var(--accent);}
+.inp::placeholder{color:var(--dim);}
+.sel{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 11px;font-size:12.5px;outline:none;}
+.lbl{font-size:9.5px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:5px;display:block;}
+
+/* ═══ CHIPS / BADGES ══════════════════════════════════ */
+.chip{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:99px;font-size:9.5px;font-weight:600;letter-spacing:.4px;font-family:'JetBrains Mono',monospace;}
+.chip-gold{background:var(--accent-dim);color:var(--accent);border:1px solid rgba(201,168,76,.22);}
+.chip-blue{background:rgba(82,131,224,.1);color:var(--blue);border:1px solid rgba(82,131,224,.22);}
+.chip-red{background:rgba(217,95,95,.1);color:var(--red);border:1px solid rgba(217,95,95,.22);}
+.chip-green{background:rgba(74,171,120,.1);color:var(--green);border:1px solid rgba(74,171,120,.22);}
+.chip-purple{background:rgba(143,103,216,.1);color:var(--purple);border:1px solid rgba(143,103,216,.22);}
+.chip-dim{background:var(--surface2);color:var(--muted);border:1px solid var(--border);}
+
+/* ═══ MODAL ═══════════════════════════════════════════ */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:800;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(5px);animation:fade .15s ease;}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:12px;width:100%;max-height:88vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,.7);}
+.modal-sm{max-width:420px;}
+.modal-md{max-width:540px;}
+.modal-lg{max-width:740px;}
+.mhd{padding:18px 20px 14px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;}
+.mhd-title{font-family:'Playfair Display',serif;font-size:17px;font-weight:700;}
+.mhd-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+.mclose{width:24px;height:24px;border-radius:5px;background:var(--surface2);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted);}
+.mclose:hover{color:var(--text);}
+.mbody{padding:18px 20px 20px;display:flex;flex-direction:column;gap:13px;}
+.frow{display:flex;gap:10px;}
+.ff{display:flex;flex-direction:column;flex:1;}
+.choices{display:flex;gap:6px;flex-wrap:wrap;}
+.choice{padding:5px 11px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);font-size:11.5px;cursor:pointer;transition:all .12s;}
+.choice:hover{border-color:var(--accent);color:var(--text);}
+.choice.picked{border-color:var(--accent);background:var(--accent-dim);color:var(--accent);}
+
+/* ═══ TOAST ═══════════════════════════════════════════ */
+.toast-stack{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:999;display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none;}
+.toast{background:var(--surface3);border:1px solid var(--border2);border-radius:8px;padding:9px 15px;font-size:12px;box-shadow:0 4px 18px rgba(0,0,0,.5);animation:fadeUp .2s ease;white-space:nowrap;}
+
+/* ═══ PANEL COLLAPSE BTN ══════════════════════════════ */
+.pcol{position:absolute;right:-10px;top:50%;transform:translateY(-50%);width:20px;height:20px;border-radius:50%;background:var(--surface2);border:1px solid var(--border2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--muted);z-index:20;transition:all .14s;}
+.pcol:hover{background:var(--accent-dim);color:var(--accent);}
+
+/* ═══ FOCUS BAR ═══════════════════════════════════════ */
+.focus-bar{display:flex;align-items:center;gap:9px;padding:7px 16px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;}
+
+/* ═══ DASHBOARD ═══════════════════════════════════════ */
+.dash-scroll{flex:1;overflow-y:auto;}
+.dash-hero{padding:20px 24px 14px;display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+.greeting{font-family:'Playfair Display',serif;font-size:20px;font-weight:700;}
+.greeting-sub{font-size:10.5px;color:var(--muted);margin-top:2px;font-family:'JetBrains Mono',monospace;}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:0 24px 18px;}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;position:relative;overflow:hidden;}
+.stat::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--accent);opacity:.45;}
+.stat-lbl{font-size:9.5px;text-transform:uppercase;letter-spacing:1.5px;color:var(--dim);font-family:'JetBrains Mono',monospace;margin-bottom:6px;}
+.stat-val{font-family:'Playfair Display',serif;font-size:28px;font-weight:700;color:var(--accent);line-height:1;}
+.stat-meta{font-size:10.5px;color:var(--muted);margin-top:3px;}
+.wgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:0 24px 24px;align-content:start;}
+.wcard{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+.wcard.span2{grid-column:span 2;}
+.whead{padding:10px 13px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.wtitle{font-size:8.5px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-family:'JetBrains Mono',monospace;}
+.wbody{padding:11px 13px;}
+.wrow{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);}
+.wrow:last-child{border:none;}
+
+/* ═══ NOTES ═══════════════════════════════════════════ */
+.notes-layout{flex:1;display:flex;overflow:hidden;}
+.course-panel{width:206px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:relative;transition:width .2s ease;overflow:hidden;}
+.list-panel{width:256px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:relative;transition:width .2s ease;overflow:hidden;}
+.phead{padding:11px 13px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.cgroup-hd{display:flex;align-items:center;justify-content:space-between;padding:6px 13px;cursor:pointer;transition:background .1s;user-select:none;}
+.cgroup-hd:hover,.cgroup-hd.on{background:var(--surface2);}
+.topic-row{display:flex;align-items:center;padding:5px 13px 5px 26px;font-size:11.5px;color:var(--muted);cursor:pointer;transition:all .1s;border-left:2px solid transparent;}
+.topic-row:hover{background:var(--surface2);color:var(--text);}
+.topic-row.on{color:var(--accent);border-left-color:var(--accent);background:var(--accent-dim);}
+.nfilter{display:flex;gap:4px;padding:7px 9px;border-bottom:1px solid var(--border);flex-wrap:wrap;flex-shrink:0;}
+.nfc{padding:2px 7px;border-radius:99px;font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--muted);border:1px solid var(--border);cursor:pointer;transition:all .12s;}
+.nfc:hover{color:var(--text);}
+.nfc.on{background:var(--accent-dim);color:var(--accent);border-color:rgba(201,168,76,.3);}
+.nitem{padding:9px 10px;border-radius:5px;cursor:pointer;border-left:2px solid transparent;margin:2px 5px;transition:background .1s;}
+.nitem:hover{background:var(--surface2);}
+.nitem.on{background:var(--surface2);border-left-color:var(--accent);border-radius:0 5px 5px 0;margin-left:0;padding-left:11px;}
+.nbadge{font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;font-family:'JetBrains Mono',monospace;margin-bottom:3px;}
+.ntitle{font-size:12px;font-weight:500;margin-bottom:2px;line-height:1.35;}
+.npreview{font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ndate{font-size:9.5px;color:var(--dim);margin-top:2px;font-family:'JetBrains Mono',monospace;}
+.mbadge{font-size:9px;font-weight:600;padding:2px 6px;border-radius:4px;background:var(--accent-dim);color:var(--accent);border:1px solid rgba(201,168,76,.22);cursor:pointer;font-family:'JetBrains Mono',monospace;}
+
+/* ═══ EDITOR ══════════════════════════════════════════ */
+.editor{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.etopbar{padding:8px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;background:var(--surface);flex-shrink:0;flex-wrap:wrap;}
+.earea{flex:1;overflow:hidden;display:flex;}
+.escroll{flex:1;overflow-y:auto;padding:40px 0 60px;display:flex;flex-direction:column;align-items:center;}
+.ecol{width:100%;max-width:680px;padding:0 44px;}
+.etitle{font-family:'Playfair Display',serif;font-size:24px;font-weight:700;background:none;border:none;outline:none;width:100%;margin-bottom:4px;letter-spacing:-.3px;line-height:1.3;color:var(--text);}
+.emeta{font-size:10.5px;color:var(--dim);font-family:'JetBrains Mono',monospace;margin-bottom:22px;display:flex;gap:10px;flex-wrap:wrap;padding-bottom:16px;border-bottom:1px solid var(--border);}
+.ebody{font-size:13.5px;line-height:1.85;color:var(--text);background:none;border:none;outline:none;width:100%;min-height:360px;font-family:'DM Sans',sans-serif;}
+.bsec{margin-bottom:20px;}
+.blbl{font-size:8.5px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:var(--accent);font-family:'JetBrains Mono',monospace;margin-bottom:5px;display:block;opacity:.85;}
+.bta{background:transparent;border:1px solid var(--border);border-radius:6px;padding:9px 12px;font-size:13px;line-height:1.7;color:var(--text);outline:none;width:100%;min-height:56px;font-family:'DM Sans',sans-serif;transition:border-color .14s,background .14s;}
+.bta:focus{border-color:rgba(201,168,76,.45);background:rgba(201,168,76,.025);}
+.bta::placeholder{color:var(--dim);font-style:italic;}
+
+/* ═══ AI PANEL ════════════════════════════════════════ */
+.aipanel{width:272px;flex-shrink:0;border-left:1px solid var(--border);background:var(--surface);display:flex;flex-direction:column;transition:width .2s;}
+.aipanel.hide{width:0;overflow:hidden;border:none;}
+.aihd{padding:10px 13px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.aititle{font-size:9.5px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1.5px;font-family:'JetBrains Mono',monospace;display:flex;align-items:center;gap:6px;}
+.aidot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;}
+.aiscroll{flex:1;overflow-y:auto;padding:11px;}
+.aisec{margin-bottom:16px;}
+.aisec-lbl{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-family:'JetBrains Mono',monospace;margin-bottom:6px;}
+.aicard{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:11.5px;line-height:1.6;color:var(--muted);margin-bottom:5px;cursor:pointer;transition:all .14s;}
+.aicard:hover{border-color:rgba(201,168,76,.3);color:var(--text);}
+.aicard.tip{background:var(--accent-glow);border-color:rgba(201,168,76,.12);cursor:default;}
+.pqopt{padding:5px 9px;border-radius:5px;font-size:11px;cursor:pointer;border:1px solid var(--border);color:var(--muted);transition:all .12s;margin-bottom:4px;}
+.pqopt:hover{border-color:var(--accent);color:var(--text);background:var(--accent-dim);}
+.pqopt.ok{border-color:var(--green);background:rgba(74,171,120,.08);color:var(--green);}
+.pqopt.no{border-color:var(--red);background:rgba(217,95,95,.08);color:var(--red);}
+
+/* ═══ TRANSCRIPT BAR ══════════════════════════════════ */
+.tsbar{background:var(--surface);border-top:1px solid var(--border);padding:8px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.recbtn{width:28px;height:28px;border-radius:50%;background:var(--red);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;transition:all .2s;}
+.recbtn.live{animation:recPing 1.5s infinite;}
+.tstxt{font-size:11px;color:var(--muted);flex:1;font-family:'JetBrains Mono',monospace;}
+.tstime{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);}
+
+/* ═══ MERGE VIEW ══════════════════════════════════════ */
+.mghd{padding:9px 16px;border-bottom:1px solid rgba(201,168,76,.2);display:flex;align-items:center;gap:9px;background:rgba(201,168,76,.04);flex-shrink:0;}
+.mgbody{display:flex;flex:1;overflow:hidden;}
+.mgpane{flex:1;display:flex;flex-direction:column;border-right:1px solid var(--border);overflow:hidden;}
+.mgpane-hd{padding:8px 13px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:7px;flex-shrink:0;}
+.syncmap{width:148px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;}
+.tslink{padding:7px 9px;border-radius:5px;cursor:pointer;margin-bottom:3px;border:1px solid transparent;transition:all .12s;}
+.tslink:hover{background:var(--surface2);}
+.tslink.hi{background:var(--accent-dim);border-color:rgba(201,168,76,.22);}
+.tstlbl{font-size:10px;color:var(--accent);font-family:'JetBrains Mono',monospace;margin-bottom:1px;}
+.tslabel{font-size:11px;color:var(--muted);line-height:1.3;}
+.tsblock{border-radius:3px;padding:1px 2px;transition:background .2s;margin-bottom:12px;cursor:pointer;}
+.tsblock.hi{background:rgba(201,168,76,.07);border-left:2px solid var(--accent);padding-left:7px;}
+.tsstamp{color:var(--accent);cursor:pointer;font-family:'JetBrains Mono',monospace;text-decoration:underline;text-underline-offset:2px;}
+
+/* ═══ OUTLINE ═════════════════════════════════════════ */
+.outline-doc{max-width:740px;margin:0 auto;padding:36px 44px 56px;}
+.otag{font-size:9.5px;font-family:'JetBrains Mono',monospace;letter-spacing:2px;text-transform:uppercase;color:var(--dim);margin-bottom:8px;}
+.otitle{font-family:'Playfair Display',serif;font-size:28px;font-weight:700;letter-spacing:-.4px;margin-bottom:4px;}
+.ometa{font-size:10px;color:var(--dim);font-family:'JetBrains Mono',monospace;padding-bottom:20px;border-bottom:1px solid var(--border);margin-bottom:24px;}
+.osec{margin-bottom:28px;}
+.oh1{font-family:'Playfair Display',serif;font-size:18px;font-weight:700;padding-bottom:6px;border-bottom:1px solid var(--border);margin-bottom:11px;display:flex;align-items:baseline;gap:9px;}
+.oh1-n{font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--dim);}
+.oh2{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.3px;margin:13px 0 5px;}
+.opt{font-size:13px;line-height:1.75;padding-left:13px;border-left:2px solid var(--border);margin-bottom:6px;}
+.cite{color:var(--accent);text-decoration:underline;text-underline-offset:2px;text-decoration-style:dotted;font-style:italic;cursor:pointer;}
+
+/* ═══ PRACTICE ════════════════════════════════════════ */
+.pracwrap{flex:1;overflow-y:auto;padding:24px;}
+.prachd{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;gap:14px;}
+.prgtitle{font-family:'Playfair Display',serif;font-size:20px;font-weight:700;}
+.prgsub{font-size:12px;color:var(--muted);margin-top:2px;}
+.prgbar{height:3px;background:var(--border);border-radius:99px;width:160px;overflow:hidden;margin-top:5px;}
+.prgfill{height:100%;background:var(--accent);border-radius:99px;transition:width .35s ease;}
+.qcard{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px;margin-bottom:14px;}
+.qtopic{font-size:9px;font-family:'JetBrains Mono',monospace;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim);margin-bottom:10px;}
+.qtext{font-size:14px;line-height:1.7;font-weight:500;margin-bottom:18px;}
+.qopt{padding:10px 14px;border-radius:6px;border:1px solid var(--border);cursor:pointer;font-size:12.5px;color:var(--muted);transition:all .12s;margin-bottom:6px;display:flex;align-items:flex-start;gap:10px;}
+.qopt:hover:not(.done){border-color:var(--accent);color:var(--text);background:var(--accent-dim);}
+.qopt.ok{border-color:var(--green);background:rgba(74,171,120,.07);color:var(--green);}
+.qopt.no{border-color:var(--red);background:rgba(217,95,95,.07);color:var(--red);}
+.qletter{width:20px;height:20px;border-radius:4px;background:var(--surface3);display:flex;align-items:center;justify-content:center;font-size:9.5px;font-family:'JetBrains Mono',monospace;font-weight:700;flex-shrink:0;}
+.qexplain{background:var(--surface2);border:1px solid var(--border);border-left:3px solid var(--green);border-radius:6px;padding:12px;font-size:12px;line-height:1.65;color:var(--muted);margin-top:10px;animation:fadeUp .2s ease;}
+
+/* ═══ CALENDAR ════════════════════════════════════════ */
+.calwrap{flex:1;overflow-y:auto;padding:20px 24px;}
+.calhd{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
+.calmonth{font-family:'Playfair Display',serif;font-size:19px;font-weight:700;}
+.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border-radius:10px;overflow:hidden;border:1px solid var(--border);}
+.caldh{background:var(--surface);padding:8px;text-align:center;font-size:9px;font-family:'JetBrains Mono',monospace;letter-spacing:1px;text-transform:uppercase;color:var(--dim);}
+.calcel{background:var(--surface);padding:6px 7px;min-height:82px;cursor:pointer;transition:background .1s;}
+.calcel:hover{background:var(--surface2);}
+.calcel.today{background:var(--accent-glow);}
+.calcel.other{opacity:.3;}
+.calnum{font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--dim);margin-bottom:3px;}
+.calcel.today .calnum{color:var(--accent);font-weight:700;}
+.calev{font-size:9.5px;padding:2px 5px;border-radius:3px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* ═══ DOCS ════════════════════════════════════════════ */
+.docs-layout{flex:1;display:flex;overflow:hidden;}
+.docs-main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.docs-tb{padding:11px 17px;border-bottom:1px solid var(--border);background:var(--surface);display:flex;align-items:center;gap:9px;flex-shrink:0;}
+.docs-quick{padding:11px 17px;border-bottom:1px solid var(--border);display:flex;gap:8px;flex-shrink:0;}
+.dqbtn{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:10px;cursor:pointer;text-align:center;transition:border-color .14s,background .14s;}
+.dqbtn:hover{border-color:rgba(201,168,76,.35);background:var(--surface3);}
+.docs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:10px;}
+.dcard{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:13px;cursor:pointer;transition:border-color .14s,background .14s;}
+.dcard:hover{border-color:rgba(201,168,76,.28);background:var(--surface2);}
+.dicon{font-size:21px;margin-bottom:8px;line-height:1;}
+.dname{font-size:11.5px;font-weight:600;margin-bottom:3px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.dmeta{font-size:9.5px;color:var(--dim);font-family:'JetBrains Mono',monospace;margin-bottom:7px;}
+
+/* ═══ TEXTBOOKS ═══════════════════════════════════════ */
+.tbview{flex:1;display:flex;overflow:hidden;}
+.tblib{width:212px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;transition:width .2s;overflow:hidden;position:relative;}
+.tbreader{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.tbtb{padding:7px 13px;border-bottom:1px solid var(--border);background:var(--surface);display:flex;align-items:center;gap:5px;flex-shrink:0;flex-wrap:wrap;}
+.tbtg{display:flex;align-items:center;gap:3px;padding:0 7px;border-right:1px solid var(--border);}
+.tbtg:last-child{border:none;}
+.tbt{width:26px;height:26px;border-radius:5px;border:none;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted);transition:all .12s;}
+.tbt:hover{background:var(--surface2);color:var(--text);}
+.tbt.on{background:var(--accent-dim);color:var(--accent);}
+.hlsw{width:19px;height:19px;border-radius:3px;cursor:pointer;border:2px solid transparent;transition:all .12s;flex-shrink:0;}
+.hlsw:hover,.hlsw.on{border-color:rgba(255,255,255,.3);transform:scale(1.1);}
+.pgbtn{width:22px;height:22px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-size:9px;display:flex;align-items:center;justify-content:center;}
+.pgbtn:hover{border-color:var(--accent);color:var(--accent);}
+.tbrp{flex:1;overflow-y:auto;display:flex;justify-content:center;padding:32px 20px;background:var(--bg);}
+.tbpage{width:100%;max-width:720px;background:#16171b;border-radius:3px;padding:48px 58px;font-size:14px;line-height:1.87;color:#d0cec7;box-shadow:0 2px 22px rgba(0,0,0,.35);user-select:text;}
+.tbct{font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--text);margin-bottom:5px;letter-spacing:-.3px;}
+.tbst{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-family:'JetBrains Mono',monospace;margin:24px 0 10px;}
+.tbpage p{margin-bottom:14px;}
+.hly{background:rgba(255,214,0,.2);border-bottom:2px solid rgba(255,214,0,.5);}
+.hlg{background:rgba(74,171,120,.16);border-bottom:2px solid rgba(74,171,120,.48);}
+.hlp{background:rgba(217,95,95,.14);border-bottom:2px solid rgba(217,95,95,.48);}
+.hlb{background:rgba(82,131,224,.16);border-bottom:2px solid rgba(82,131,224,.48);}
+.tbbook{padding:9px 12px;cursor:pointer;transition:background .1s;border-left:2px solid transparent;display:flex;align-items:flex-start;gap:8px;}
+.tbbook:hover{background:var(--surface2);}
+.tbbook.on{background:var(--surface2);border-left-color:var(--accent);}
+.tbthumb{width:26px;height:36px;border-radius:2px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;}
+.tbprog{margin-top:4px;height:2px;background:var(--border);border-radius:99px;overflow:hidden;}
+.tbprogf{height:100%;background:var(--accent);}
+.tbann{width:250px;flex-shrink:0;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;transition:width .2s;}
+.tbaitem{padding:9px 10px;border-radius:6px;border:1px solid var(--border);margin-bottom:6px;cursor:pointer;background:var(--surface2);}
+.tbaitem:hover{border-color:rgba(201,168,76,.28);}
+.tbaquote{font-size:10.5px;line-height:1.5;color:var(--text);margin-bottom:5px;font-style:italic;border-left:2px solid var(--accent);padding-left:7px;}
+.tbanote{font-size:10px;color:var(--muted);line-height:1.4;}
+.tbameta{font-size:9px;color:var(--dim);font-family:'JetBrains Mono',monospace;margin-top:4px;}
+.selpop{position:fixed;background:var(--surface3);border:1px solid var(--border2);border-radius:7px;padding:5px 7px;display:flex;align-items:center;gap:3px;z-index:400;box-shadow:0 5px 20px rgba(0,0,0,.6);}
+.selact{padding:4px 8px;border-radius:4px;font-size:10.5px;cursor:pointer;color:var(--muted);border:none;background:transparent;transition:all .1s;}
+.selact:hover{background:var(--surface2);color:var(--text);}
+.seldiv{width:1px;height:13px;background:var(--border);}
+.selhl{width:15px;height:15px;border-radius:3px;cursor:pointer;border:1px solid transparent;}
+.selhl:hover{transform:scale(1.15);border-color:rgba(255,255,255,.2);}
+
+/* ═══ INTEGRATIONS ════════════════════════════════════ */
+.intwrap{flex:1;overflow-y:auto;padding:24px;}
+.intgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(275px,1fr));gap:12px;margin:16px 0;}
+.intcard{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:16px;transition:border-color .14s;}
+.intcard:hover{border-color:rgba(201,168,76,.18);}
+.intcard.conn{border-color:rgba(74,171,120,.18);}
+.inticon{width:40px;height:40px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:19px;margin-bottom:10px;}
+.intname{font-size:13px;font-weight:600;margin-bottom:4px;}
+.intdesc{font-size:11.5px;color:var(--muted);line-height:1.6;margin-bottom:10px;}
+.intstatus{display:flex;align-items:center;gap:5px;font-size:11px;}
+.sdot{width:6px;height:6px;border-radius:50%;}
+
+/* ═══ API MAP ══════════════════════════════════════════ */
+.apiwrap{flex:1;overflow-y:auto;padding:24px;}
+.apigrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:13px;}
+.apicard{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:16px;}
+.apibadge{padding:3px 7px;border-radius:4px;font-size:8.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;font-family:'JetBrains Mono',monospace;}
+.apibadge.core{background:var(--accent-dim);color:var(--accent);}
+.apibadge.ai{background:rgba(82,131,224,.1);color:var(--blue);}
+.apibadge.sync{background:rgba(74,171,120,.1);color:var(--green);}
+.apibadge.db{background:rgba(143,103,216,.1);color:var(--purple);}
+.apiname{font-size:13.5px;font-weight:600;margin:8px 0 5px;}
+.apipurpose{font-size:11.5px;color:var(--muted);line-height:1.6;margin-bottom:10px;}
+.apieps{display:flex;flex-direction:column;gap:4px;}
+.ep{display:flex;align-items:center;gap:7px;font-size:10.5px;}
+.meth{padding:2px 5px;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:8.5px;font-weight:700;min-width:38px;text-align:center;}
+.meth.get{background:rgba(74,171,120,.1);color:var(--green);}
+.meth.post{background:rgba(82,131,224,.1);color:var(--blue);}
+.meth.patch{background:var(--accent-dim);color:var(--accent);}
+.meth.del{background:rgba(217,95,95,.1);color:var(--red);}
+.epath{font-family:'JetBrains Mono',monospace;color:var(--muted);font-size:10px;}
+.apisep{height:1px;background:var(--border);margin:9px 0;}
+.apiowner{font-size:10px;color:var(--dim);font-family:'JetBrains Mono',monospace;}
+
+/* ═══ SETTINGS ════════════════════════════════════════ */
+.setwrap{flex:1;overflow-y:auto;padding:24px;}
+.setgrid{display:grid;grid-template-columns:1fr 2fr;gap:20px;max-width:860px;}
+.setnav{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px;}
+.setsection{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;display:flex;flex-direction:column;gap:16px;}
+.setrow{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);}
+.setrow:last-child{border:none;}
+.toggle-track{width:36px;height:20px;border-radius:99px;background:var(--border);cursor:pointer;position:relative;transition:background .2s;flex-shrink:0;}
+.toggle-track.on{background:var(--accent);}
+.toggle-thumb{width:16px;height:16px;border-radius:50%;background:white;position:absolute;top:2px;left:2px;transition:left .2s;}
+.toggle-track.on .toggle-thumb{left:18px;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useRef,useCallback}=React;
+
+/* ═══════════════ DATA ═══════════════════════════════ */
+const COURSES=[
+  {id:'torts',     label:'Torts',          color:'#d95f5f',
+   topics:[{id:'negligence',label:'Negligence',n:5},{id:'assault',label:'Assault & Battery',n:3},{id:'nied',label:'NIED',n:2},{id:'products',label:'Products Liability',n:2}]},
+  {id:'contracts', label:'Contracts',       color:'#5283e0',
+   topics:[{id:'formation',label:'Formation',n:6},{id:'consideration',label:'Consideration',n:4},{id:'damages',label:'Damages',n:5},{id:'breach',label:'Breach & Remedies',n:3}]},
+  {id:'crim',      label:'Crim Law',        color:'#4aab78',
+   topics:[{id:'mensrea',label:'Mens Rea',n:4},{id:'actusreus',label:'Actus Reus',n:3},{id:'homicide',label:'Homicide',n:2}]},
+  {id:'civpro',    label:'Civil Procedure', color:'#c9a84c',
+   topics:[{id:'jurisdiction',label:'Jurisdiction',n:4},{id:'pleading',label:'Pleading',n:3},{id:'discovery',label:'Discovery',n:4}]},
+  {id:'conlaw',    label:'Con Law',         color:'#8f67d8',
+   topics:[{id:'dueprocess',label:'Due Process',n:3},{id:'equal',label:'Equal Protection',n:3},{id:'commerce',label:'Commerce Clause',n:2}]},
+];
+
+const INIT_NOTES=[
+  {id:1,course:'torts',topic:'negligence',type:'brief',title:'Palsgraf v. Long Island RR',citation:'248 N.Y. 339',preview:'Proximate cause — duty owed only to foreseeable plaintiffs',date:'Feb 13',hasAudio:false,hasMerge:false,
+   bf:{facts:'A railroad guard helped a passenger board a moving train, knocking loose a package of fireworks that exploded, causing scales to fall on Palsgraf standing far away.',issue:'Whether a defendant owes a duty to a plaintiff not in the foreseeable zone of danger.',rule:'No duty to unforeseeable plaintiffs. Cardozo: duty is relational, limited to the foreseeable zone of danger.',reasoning:'Risk defines duty. Andrews dissent: duty owed to all society, proximate cause limits liability.',notes:'KEY: Argue BOTH Cardozo AND Andrews on exams. Cardozo = was plaintiff foreseeable? Andrews = was harm too remote?'}},
+  {id:2,course:'torts',topic:'negligence',type:'class',title:'Negligence — Feb 12',preview:'Reasonable person standard, Hand Formula, Carroll Towing',date:'Feb 12',hasAudio:true,hasMerge:true,
+   content:'Prof. Chen: "Not a perfect person, not a genius, not a fool."\n\nOBJECTIVE standard — not what this D could do, but what a reasonable person would.\n\nHand Formula (Carroll Towing):\n  B < P × L → negligence\n  B = cost of precaution\n  P = probability of harm\n  L = magnitude of loss'},
+  {id:3,course:'torts',topic:'negligence',type:'auto',title:'Lecture — Feb 10 (Auto)',preview:'AI transcription: duty element, foreseeability analysis',date:'Feb 10 · 47 min',hasAudio:false,hasMerge:true,
+   content:'[00:00] Duty element overview.\n[02:14] Reasonable person = external, objective test.\n[05:30] Vaughan v. Menlove — "honest best judgment" rejected.\n[11:20] HAND FORMULA: B < P × L\n[18:45] Carroll Towing hypo — barge unattended.\n[31:00] B includes ANY cost, not just economic.\n[39:15] Transition to proximate cause.'},
+  {id:4,course:'torts',topic:'negligence',type:'brief',title:'Bolton v. Stone',preview:'Cricket ball struck pedestrian — probability too low',date:'Feb 10',hasAudio:false,hasMerge:false,
+   bf:{facts:'Cricket ball struck pedestrian. Ball had cleared fence only rarely in 30 years.',issue:'Negligence when probability of harm is very low?',rule:'No negligence when risk so small a reasonable person would not guard against it.',reasoning:'Lord Reid: balance risk against cost of guarding against it.',notes:'Compare Hand Formula: when P is tiny, B < PL may fail even with low B.'}},
+  {id:5,course:'contracts',topic:'consideration',type:'brief',title:'Hamer v. Sidway',preview:'Uncle promised nephew money to refrain from bad habits',date:'Feb 8',hasAudio:false,hasMerge:false,
+   bf:{facts:'Uncle promised $5,000 if nephew refrained from drinking, tobacco, swearing until 21.',issue:'Does forbearance from a legal right constitute valid consideration?',rule:'Forbearance of a legal right is valid consideration.',reasoning:'The nephew had the legal right to drink and gamble; forbearance was detriment sufficient for consideration.',notes:'Courts do not inquire into adequacy of consideration, only its existence.'}},
+  {id:6,course:'contracts',topic:'damages',type:'brief',title:'Hadley v. Baxendale',preview:'Consequential damages must be foreseeable at formation',date:'Feb 6',hasAudio:false,hasMerge:false,
+   bf:{facts:'Mill owner sent broken shaft to carrier. Delivery delayed. Mill lost profits.',issue:'Are consequential damages recoverable when unforeseeable at contract formation?',rule:'Consequential damages only if foreseeable to both parties at formation.',reasoning:'Carrier did not know mill depended on shaft — lost profits not within their contemplation.',notes:'Two-prong: (1) naturally arising from breach OR (2) within parties\' contemplation at formation.'}},
+];
+
+const INIT_DOCS=[
+  {id:1,icon:'📝',name:'Torts Outline — Final Exam',type:'docx',course:'torts',modified:'Feb 12'},
+  {id:2,icon:'📊',name:'Case Chart — Negligence',type:'xlsx',course:'torts',modified:'Feb 10'},
+  {id:3,icon:'📝',name:'Legal Memo — Contract Formation',type:'docx',course:'contracts',modified:'Feb 9'},
+  {id:4,icon:'📋',name:'Issue Spotter Checklist',type:'form',course:'contracts',modified:'Feb 8'},
+  {id:5,icon:'📝',name:'Crim Law Exam Outline',type:'docx',course:'crim',modified:'Feb 7'},
+  {id:6,icon:'📊',name:'Grade Tracker — Spring 2025',type:'xlsx',course:'',modified:'Feb 5'},
+  {id:7,icon:'📋',name:'Civ Pro Jurisdiction Checklist',type:'form',course:'civpro',modified:'Feb 3'},
+  {id:8,icon:'📝',name:'Con Law — Commerce Clause Outline',type:'docx',course:'conlaw',modified:'Feb 1'},
+];
+
+const INIT_BOOKS=[
+  {id:'prosser',title:'Prosser & Keeton on Torts',sub:'Torts · 5th Ed.',icon:'📕',bg:'rgba(217,95,95,.14)',prog:34},
+  {id:'dressler',title:'Dressler — Criminal Law',sub:'Crim Law · 6th Ed.',icon:'📗',bg:'rgba(74,171,120,.14)',prog:58},
+  {id:'farnsworth',title:'Farnsworth on Contracts',sub:'Contracts · 3rd Ed.',icon:'📘',bg:'rgba(82,131,224,.14)',prog:21},
+  {id:'freer',title:'Freer — Civil Procedure',sub:'Civ Pro · 2nd Ed.',icon:'📙',bg:'rgba(201,168,76,.14)',prog:12},
+];
+
+const INIT_ANNOTATIONS=[
+  {id:1,quote:'"reasonable person would have behaved under the same or similar circumstances"',note:'Core def — start every negligence IRAC here',color:'yellow',page:47},
+  {id:2,quote:'"objective legal fiction designed to set an external, uniform standard"',note:'Compare to Andrews dissent in Palsgraf',color:'green',page:47},
+  {id:3,quote:'standard is elevated accordingly — superior skill raises the bar',note:'EXAM: Professional std of care always higher',color:'pink',page:48},
+  {id:4,quote:'B < PL — Carroll Towing (Hand Formula)',note:'Memorize. B=burden, P=probability, L=loss',color:'blue',page:49},
+];
+
+const HL={yellow:'rgba(255,214,0,.2)',green:'rgba(74,171,120,.16)',pink:'rgba(217,95,95,.14)',blue:'rgba(82,131,224,.16)'};
+const HLDOT={yellow:'#ffd600',green:'#4aab78',pink:'#d95f5f',blue:'#5283e0'};
+
+const PRACTICE_QS=[
+  {id:1,course:'Contracts',topic:'Damages',sub:'Hadley v. Baxendale',
+   text:'A software company contracts with a logistics firm to deliver a server. The logistics firm is unaware the entire e-commerce platform depends on it. The firm delivers a week late. Which damages are recoverable?',
+   opts:['All lost profits — the breach caused them directly.','No damages — the loss was due to the company\'s own design choices.','Only general damages; lost profits are not recoverable because the firm was not informed of special circumstances at formation.','Punitive damages, since the delay was egregious.'],
+   correct:2,exp:'Under Hadley v. Baxendale, consequential damages require both parties to contemplate the loss at formation. The logistics firm knew nothing about the critical dependency — lost profits are unrecoverable.'},
+  {id:2,course:'Torts',topic:'Negligence',sub:'Carroll Towing / Hand Formula',
+   text:'A barge owner leaves his barge unattended for 21 hours. It breaks free and causes $50,000 in damage. Cost to keep an attendant: $10/day. Probability barge breaks free: 1%. Applying the Hand Formula, was the barge owner negligent?',
+   opts:['No — probability was very low.','Yes — B ($10) < P×L ($500), so precaution cost was less than expected harm.','No — barge owners have no duty to have attendants onboard.','Yes — but only because the area was inherently dangerous.'],
+   correct:1,exp:'Hand Formula: B < PL = negligence. B=$10; P=0.01; L=$50,000; PL=$500. Since $10 < $500, the owner was negligent for not keeping an attendant onboard.'},
+  {id:3,course:'Torts',topic:'Duty',sub:'Palsgraf v. LIRR',
+   text:'Under the Cardozo majority in Palsgraf, which plaintiff would MOST clearly be owed a duty of care by the railroad?',
+   opts:['A bystander 200 feet away struck by debris from an explosion.','A passenger jostled when the guard helps another passenger board.','A person at home who suffers a heart attack hearing news of the accident.','A competitor railroad that loses business as passengers avoid the line.'],
+   correct:1,exp:'Cardozo: duty owed only to those within the foreseeable zone of danger. The passenger being helped on board is most directly in the zone of danger from the guard\'s acts.'},
+];
+
+const CAL_EVENTS={
+  2:[{l:'Contracts 9am',c:'rgba(82,131,224,.2)',tc:'#5283e0'}],
+  5:[{l:'Torts Reading',c:'rgba(217,95,95,.2)',tc:'#d95f5f'}],
+  6:[{l:'Contracts 9am',c:'rgba(82,131,224,.2)',tc:'#5283e0'}],
+  7:[{l:'Harrison OH',c:'rgba(74,171,120,.2)',tc:'#4aab78'}],
+  9:[{l:'Torts 10am',c:'rgba(217,95,95,.2)',tc:'#d95f5f'}],
+  12:[{l:'Civ Pro 2pm',c:'rgba(201,168,76,.2)',tc:'#c9a84c'}],
+  13:[{l:'Torts 10am',c:'rgba(217,95,95,.2)',tc:'#d95f5f'}],
+  15:[{l:'Moot Court',c:'rgba(143,103,216,.2)',tc:'#8f67d8'}],
+  16:[{l:'Contracts 9am',c:'rgba(82,131,224,.2)',tc:'#5283e0'}],
+  18:[{l:'Civ Pro Disc.',c:'rgba(201,168,76,.2)',tc:'#c9a84c'}],
+  19:[{l:'Office Hours',c:'rgba(74,171,120,.2)',tc:'#4aab78'}],
+  23:[{l:'Con Law Oral',c:'rgba(143,103,216,.2)',tc:'#8f67d8'}],
+  25:[{l:'Reading Due',c:'rgba(217,95,95,.2)',tc:'#d95f5f'}],
+};
+
+const TB_CONTENT=`
+<div class="tbct">Chapter 3 — Negligence</div>
+<div style="font-size:10px;color:#3e4152;font-family:'JetBrains Mono',monospace;margin-bottom:22px;margin-top:4px">Prosser & Keeton on Torts, 5th Edition</div>
+<div class="tbst">§ 3.1 The Reasonable Person Standard</div>
+<p>The foundation of negligence liability rests on a deceptively simple question: did the defendant behave as a <span class="hly">reasonable person would have behaved under the same or similar circumstances?</span> This "reasonable person" is not a perfect being — it is an <span class="hlg">objective legal fiction designed to set an external, uniform standard against which all conduct may be measured.</span></p>
+<p><em>Vaughan v. Menlowe</em> (1837) established that a defendant's subjective belief in the prudence of his conduct provides no defense. The court rejected "honest best judgment" — to accept it would allow each man to carry his own standard of care, producing results "as variable as the length of the foot."</p>
+<p><span class="hlp">Where the defendant possesses superior knowledge, skill, or expertise, the standard is elevated accordingly.</span> A surgeon is held to the standard of a reasonable surgeon; a licensed electrician to the standard of a reasonable electrician.</p>
+<div class="tbst">§ 3.2 The Hand Formula</div>
+<p>Judge Learned Hand, in <em>United States v. Carroll Towing Co.</em> (2d Cir. 1947), articulated the dominant economic framework for evaluating negligence. <span class="hlb">A party is negligent if the burden of taking adequate precautions (B) is less than the probability of harm (P) multiplied by the gravity of injury (L). Algebraically: B &lt; PL.</span></p>
+<p>The Carroll Towing facts illustrate the formula well. A barge owner left his vessel unattended. When the barge broke free and caused significant damage, Hand found the cost of keeping an attendant far exceeded the expected harm of not doing so.</p>
+<p>Critics note the formula reduces moral judgments to economic calculation. <span class="hly">The formula provides clarity but cannot account for dignity, autonomy, or distributional equity that tort law has historically served.</span></p>
+<div class="tbst">§ 3.3 Custom as Evidence</div>
+<p>In <em>The T.J. Hooper</em> (1932), Hand held that an entire industry can be negligent: <span class="hlg">"courts must in the end say what is required; there are precautions so imperative that even their universal disregard will not excuse their omission."</span></p>
+<p style="font-size:10.5px;color:#3e4152;margin-top:7px">* See Chapter 11 (Medical Malpractice) and Chapter 12 (Legal Malpractice).</p>`;
+
+const API_DATA=[
+  {cat:'core',label:'Core API',name:'LexNotes REST API',owner:'Build in-house (Node.js + Express)',purpose:'Handles all note CRUD, user auth, course/topic management, and real-time collab sessions. The central data layer everything else calls through.',eps:[{m:'post',p:'/api/auth/register'},{m:'post',p:'/api/auth/login'},{m:'get',p:'/api/notes?course=&topic='},{m:'post',p:'/api/notes'},{m:'patch',p:'/api/notes/:id'},{m:'del',p:'/api/notes/:id'}]},
+  {cat:'ai',label:'AI',name:'Anthropic Claude API',owner:'api.anthropic.com',purpose:'Powers AI auto-outline generation, case brief suggestions, exam tip generation, topic connection mapping, and AI-generated practice question explanations.',eps:[{m:'post',p:'/api/ai/generate-outline'},{m:'post',p:'/api/ai/suggest-connections'},{m:'post',p:'/api/ai/generate-questions'},{m:'post',p:'/api/ai/exam-tips'}]},
+  {cat:'ai',label:'AI',name:'OpenAI Whisper API',owner:'api.openai.com',purpose:'Real-time lecture recording transcription with timestamp generation and speaker detection. Powers Auto Notes, merge feature, and timestamp sync map.',eps:[{m:'post',p:'/api/audio/transcribe'},{m:'get',p:'/api/audio/:id/timestamps'},{m:'get',p:'/api/audio/:id/status'}]},
+  {cat:'db',label:'Storage',name:'Supabase / PostgreSQL',owner:'supabase.com',purpose:'Primary database for all user data — notes, briefs, courses, textbook annotations. Realtime subscriptions enable live sync across devices.',eps:[{m:'get',p:'/rest/v1/notes (realtime)'},{m:'post',p:'/rest/v1/notes'},{m:'patch',p:'/rest/v1/notes?id=eq.:id'},{m:'post',p:'/rest/v1/documents'}]},
+  {cat:'db',label:'Storage',name:'AWS S3 / Cloudflare R2',owner:'aws.amazon.com / cloudflare.com',purpose:'Object storage for lecture audio recordings, uploaded PDF/ePub textbooks, and exported documents. Presigned URLs for direct browser upload.',eps:[{m:'post',p:'/api/storage/presign-upload'},{m:'get',p:'/api/storage/:key'},{m:'del',p:'/api/storage/:key'}]},
+  {cat:'sync',label:'Sync',name:'Canvas LMS OAuth 2.0',owner:'canvas.instructure.com',purpose:'Pull course syllabi, assignments, due dates, and reading lists. Auto-populate the LexNotes calendar. Keep integration updated via webhook on Canvas changes.',eps:[{m:'get',p:'/api/lms/canvas/courses'},{m:'get',p:'/api/lms/canvas/assignments'},{m:'get',p:'/api/lms/canvas/calendar'},{m:'post',p:'/api/lms/canvas/webhook'}]},
+  {cat:'sync',label:'Sync',name:'Google Calendar API',owner:'developers.google.com',purpose:'Two-way calendar sync. Class schedules, office hours, and exam dates pushed from LexNotes automatically. OAuth 2.0 scope: calendar.events.',eps:[{m:'get',p:'/api/integrations/google/events'},{m:'post',p:'/api/integrations/google/events'},{m:'del',p:'/api/integrations/google/events/:id'}]},
+  {cat:'ai',label:'AI',name:'PDF.js + LlamaIndex',owner:'mozilla.github.io / llamaindex.ai',purpose:'In-app PDF/ePub parsing, text extraction, semantic chunking, and search index for textbook reader. Powers annotations, highlighting, and copy-to-notes.',eps:[{m:'post',p:'/api/textbooks/upload'},{m:'get',p:'/api/textbooks/:id/pages'},{m:'post',p:'/api/textbooks/:id/annotations'},{m:'post',p:'/api/textbooks/:id/search'}]},
+  {cat:'core',label:'Core',name:'Stripe Billing API',owner:'stripe.com',purpose:'Subscription management for Free, Pro ($12/mo), and Law School (enterprise) tiers. Usage-based AI credits for heavy users. Webhook for subscription events.',eps:[{m:'post',p:'/api/billing/create-subscription'},{m:'post',p:'/api/billing/portal'},{m:'post',p:'/api/billing/webhook'}]},
+];
+
+/* ═══════════════ HOOKS ════════════════════════════ */
+function useToast(){
+  const [ts,setTs]=useState([]);
+  const show=useCallback((msg)=>{
+    const id=Date.now();
+    setTs(p=>[...p,{id,msg}]);
+    setTimeout(()=>setTs(p=>p.filter(t=>t.id!==id)),2600);
+  },[]);
+  return [ts,show];
+}
+
+/* ═══════════════ SHARED COMPONENTS ══════════════ */
+function Toasts({items}){
+  return <div className="toast-stack">{items.map(t=><div key={t.id} className="toast">{t.msg}</div>)}</div>;
+}
+
+function Modal({open,onClose,title,sub,size='modal-md',children}){
+  if(!open)return null;
+  return(
+    <div className="overlay" onClick={e=>e.target.classList.contains('overlay')&&onClose()}>
+      <div className={`modal ${size} afu`}>
+        <div className="mhd">
+          <div><div className="mhd-title">{title}</div>{sub&&<div className="mhd-sub">{sub}</div>}</div>
+          <button className="mclose" onClick={onClose}>✕</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function PanelCollapseBtn({collapsed,onToggle}){
+  return <button className="pcol" onClick={onToggle}>{collapsed?'›':'‹'}</button>;
+}
+
+function Toggle({on,onToggle}){
+  return(
+    <div className={`toggle-track${on?' on':''}`} onClick={onToggle}>
+      <div className="toggle-thumb"/>
+    </div>
+  );
+}
+
+/* ═══════════════ SIDEBAR ════════════════════════ */
+function Sidebar({view,onNav,mini,setMini}){
+  const navItems=[
+    {id:'dashboard',ic:'⊞',label:'Dashboard'},
+    {id:'notes',ic:'✎',label:'Notes',dot:true},
+    {id:'outline',ic:'≡',label:'Outlines'},
+    {id:'practice',ic:'◎',label:'Practice'},
+    {id:'calendar',ic:'▦',label:'Calendar'},
+    {id:'docs',ic:'📄',label:'Documents'},
+    {id:'textbooks',ic:'📚',label:'Textbooks'},
+    {id:'integrations',ic:'⌁',label:'Integrations'},
+    {id:'settings',ic:'⚙',label:'Settings'},
+    {id:'apis',ic:'◈',label:'API Map'},
+  ];
+  return(
+    <div className={`sidebar${mini?' mini':''}`} style={{position:'relative'}}>
+      <div className="logo">
+        <div className="logo-icon">L</div>
+        {!mini&&<div className="logo-words">
+          <div className="logo-name">LexNotes</div>
+          <div className="logo-tag">Law School OS</div>
+        </div>}
+      </div>
+      <button className="sb-toggle" onClick={()=>setMini(v=>!v)}>{mini?'›':'‹'}</button>
+      <div className="sb-section">
+        {!mini&&<div className="sb-label">Workspace</div>}
+        {navItems.map(n=>(
+          <div key={n.id} className={`nav${view===n.id?' on':''}`} onClick={()=>onNav(n.id)} title={mini?n.label:''}>
+            <span className="nav-ic">{n.ic}</span>
+            {!mini&&<span className="nav-lbl">{n.label}</span>}
+            {!mini&&n.dot&&<span className="nav-dot"/>}
+          </div>
+        ))}
+      </div>
+      {!mini&&<div className="sb-section">
+        <div className="sb-label">Courses</div>
+        {COURSES.map(c=>(
+          <div key={c.id} className="cpill" onClick={()=>onNav('notes')}>
+            <div className="cdot" style={{background:c.color}}/>
+            <span style={{overflow:'hidden',textOverflow:'ellipsis'}}>{c.label}</span>
+          </div>
+        ))}
+      </div>}
+      <div className="sb-bottom">
+        <div className="ucard">
+          <div className="avatar">JD</div>
+          {!mini&&<div><div style={{fontSize:12.5,fontWeight:500}}>Jordan Davis</div><div style={{fontSize:10.5,color:'var(--muted)'}}>1L · Fall 2025</div></div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════ TOPBAR ═════════════════════════ */
+function Topbar({view,onNew,onToast}){
+  const titles={dashboard:'Dashboard',notes:'Notes',outline:'Outlines',practice:'Practice',calendar:'Calendar',docs:'Documents',textbooks:'Textbooks',integrations:'Integrations',settings:'Settings',apis:'API Architecture Map'};
+  const ctas={dashboard:'+ New Note',notes:'+ New Note',outline:'⚡ Regenerate',practice:'▶ New Session',calendar:'+ Event',docs:'+ New Doc',textbooks:'+ Add Book',integrations:'⌁ Connect App',settings:null,apis:null};
+  return(
+    <div className="topbar">
+      <div className="tb-title">{titles[view]||view}</div>
+      <div className="tb-search">
+        <span className="tb-search-icon">⌕</span>
+        <input placeholder="Search notes, cases, topics…" onFocus={()=>onToast('Global search — ⌘K shortcut in production')}/>
+      </div>
+      <button className="btn btn-ghost btn-sm" onClick={()=>onToast('Notifications: 3 new')}>🔔</button>
+      {ctas[view]&&<button className="btn btn-primary btn-sm" onClick={onNew}>{ctas[view]}</button>}
+    </div>
+  );
+}
+
+/* ═══════════════ DASHBOARD ══════════════════════ */
+function Dashboard({notes,onToast,onNav}){
+  const upcoming=[
+    {l:'Contracts — Chapter 12 reading',w:'Today 9:00 AM',c:'#5283e0'},
+    {l:'Office Hours — Prof. Chen',w:'Today 2:00 PM',c:'#d95f5f'},
+    {l:'Crim Law Reading Due',w:'Tomorrow',c:'#4aab78'},
+    {l:'Torts Outline Draft',w:'Feb 15',c:'#c9a84c'},
+    {l:'Moot Court Practice',w:'Feb 15, 3pm',c:'#8f67d8'},
+  ];
+  return(
+    <div className="view active afu" style={{flexDirection:'column'}}>
+      <div className="dash-scroll">
+        <div className="dash-hero">
+          <div>
+            <div className="greeting">Good morning, Jordan 👋</div>
+            <div className="greeting-sub">Monday, Feb 13, 2025 · 1L Fall Semester</div>
+          </div>
+          <div style={{display:'flex',gap:8}}>
+            <button className="btn btn-ghost btn-sm" onClick={()=>onToast('Dashboard customization — drag widgets in v1.1')}>⊞ Customize</button>
+            <button className="btn btn-primary btn-sm" onClick={()=>onNav('notes')}>+ New Note</button>
+          </div>
+        </div>
+
+        <div className="stats-row">
+          {[['Notes This Week','14','↑ 3 from last week'],['Cases Briefed','38','Across 5 courses'],['Practice Score','74%','↑ 8% this month'],['Days to Finals','31','Contracts exam first']].map(([l,v,s])=>(
+            <div className="stat" key={l}>
+              <div className="stat-lbl">{l}</div>
+              <div className="stat-val">{v}</div>
+              <div className="stat-meta">{s}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="wgrid">
+          {/* Upcoming */}
+          <div className="wcard">
+            <div className="whead"><span className="wtitle">Upcoming</span><button className="btn btn-ghost btn-sm" onClick={()=>onNav('calendar')}>Calendar →</button></div>
+            <div className="wbody">{upcoming.map((u,i)=>(
+              <div key={i} className="wrow">
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <div style={{width:3,height:32,borderRadius:2,background:u.c,flexShrink:0}}/>
+                  <div><div style={{fontSize:12,fontWeight:500}}>{u.l}</div><div style={{fontSize:10,color:'var(--dim)',fontFamily:'JetBrains Mono,monospace'}}>{u.w}</div></div>
+                </div>
+              </div>
+            ))}</div>
+          </div>
+
+          {/* Recent Notes */}
+          <div className="wcard">
+            <div className="whead"><span className="wtitle">Recent Notes</span><button className="btn btn-ghost btn-sm" onClick={()=>onNav('notes')}>All →</button></div>
+            <div className="wbody">{notes.slice(0,5).map(n=>{
+              const c=COURSES.find(c=>c.id===n.course);
+              return(
+                <div key={n.id} className="wrow" style={{cursor:'pointer'}} onClick={()=>onNav('notes')}>
+                  <div style={{display:'flex',alignItems:'center',gap:7,flex:1,minWidth:0}}>
+                    <div style={{width:6,height:6,borderRadius:'50%',background:c?.color,flexShrink:0}}/>
+                    <span style={{fontSize:12,fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{n.title}</span>
+                  </div>
+                  <span style={{fontSize:9,background:'var(--surface2)',padding:'1px 5px',borderRadius:3,color:'var(--dim)',flexShrink:0}}>{n.type}</span>
+                </div>
+              );
+            })}</div>
+          </div>
+
+          {/* AI Insights */}
+          <div className="wcard">
+            <div className="whead"><span className="wtitle">AI Insights</span><div className="aidot" style={{width:6,height:6,borderRadius:'50%',background:'var(--green)',animation:'pulse 2s infinite'}}/></div>
+            <div className="wbody">
+              <div style={{fontSize:11.5,color:'var(--muted)',lineHeight:1.6,marginBottom:10}}>You've covered negligence duty extensively but haven't reviewed <strong style={{color:'var(--text)'}}>proximate cause</strong> recently.</div>
+              <div style={{fontSize:11.5,color:'var(--muted)',lineHeight:1.6,marginBottom:10}}>Contracts gap: <strong style={{color:'var(--accent)'}}>promissory estoppel</strong> — 3 cases assigned, 0 briefed.</div>
+              <button className="btn btn-ghost btn-sm" style={{width:'100%',marginTop:4}} onClick={()=>onToast('Generating personalized study plan…')}>⚡ Generate Study Plan</button>
+            </div>
+          </div>
+
+          {/* Practice by course */}
+          <div className="wcard">
+            <div className="whead"><span className="wtitle">Practice Stats</span><button className="btn btn-ghost btn-sm" onClick={()=>onNav('practice')}>Practice →</button></div>
+            <div className="wbody">{COURSES.map((c,i)=>{
+              const pct=[72,68,81,74,65][i];
+              return(
+                <div key={c.id} className="wrow">
+                  <div style={{display:'flex',alignItems:'center',gap:7}}><div style={{width:6,height:6,borderRadius:'50%',background:c.color}}/><span style={{fontSize:11.5}}>{c.label}</span></div>
+                  <div style={{display:'flex',alignItems:'center',gap:7}}>
+                    <div style={{width:55,height:3,borderRadius:99,background:'var(--border)',overflow:'hidden'}}><div style={{width:`${pct}%`,height:'100%',background:c.color,borderRadius:99}}/></div>
+                    <span style={{fontSize:10,fontFamily:'JetBrains Mono,monospace',color:'var(--muted)',width:26,textAlign:'right'}}>{pct}%</span>
+                  </div>
+                </div>
+              );
+            })}</div>
+          </div>
+
+          {/* Outline preview */}
+          <div className="wcard span2">
+            <div className="whead"><span className="wtitle">Outline Preview — Contracts</span><button className="btn btn-ghost btn-sm" onClick={()=>onNav('outline')}>Full Outline →</button></div>
+            <div className="wbody" style={{fontFamily:'JetBrains Mono,monospace',fontSize:11,lineHeight:1.85,color:'var(--muted)',display:'grid',gridTemplateColumns:'1fr 1fr',columnGap:24}}>
+              <div><span style={{color:'var(--text)',fontWeight:600}}>I. Formation</span><br/>
+              &nbsp;&nbsp;A. Offer — definite terms, intent<br/>
+              &nbsp;&nbsp;B. Acceptance — mirror image / UCC §2-207<br/>
+              &nbsp;&nbsp;C. Consideration — bargained-for exchange<br/>
+              <span style={{color:'var(--text)',fontWeight:600}}>II. Defenses</span><br/>
+              &nbsp;&nbsp;A. Fraud, Duress, Undue Influence<br/>
+              &nbsp;&nbsp;B. Mistake — mutual vs. unilateral</div>
+              <div><span style={{color:'var(--text)',fontWeight:600}}>III. Breach & Remedies</span><br/>
+              &nbsp;&nbsp;A. Material vs. Minor Breach<br/>
+              &nbsp;&nbsp;B. Expectation Damages<br/>
+              &nbsp;&nbsp;C. Consequential — <span style={{color:'var(--accent)',fontStyle:'italic'}}>Hadley v. Baxendale</span><br/>
+              &nbsp;&nbsp;D. Reliance & Restitution<br/>
+              <span style={{color:'var(--text)',fontWeight:600}}>IV. Impossibility / Frustration</span></div>
+            </div>
+          </div>
+
+          {/* Email */}
+          <div className="wcard">
+            <div className="whead"><span className="wtitle">Inbox</span><button className="btn btn-ghost btn-sm" onClick={()=>onToast('Compose email')}>Compose</button></div>
+            <div className="wbody">{[
+              {from:'Prof. Chen',sub:'Re: Tuesday Office Hours',t:'9:14am',unread:true},
+              {from:'Canvas LMS',sub:'Contracts: Assignment 3 Posted',t:'8:02am',unread:true},
+              {from:'Study Group',sub:'Torts outline — can we meet?',t:'Yesterday',unread:false},
+            ].map((m,i)=>(
+              <div key={i} className="wrow" style={{cursor:'pointer',gap:8}} onClick={()=>onToast(`Opening: ${m.sub}`)}>
+                <div style={{width:5,height:5,borderRadius:'50%',background:m.unread?'var(--accent)':'transparent',border:m.unread?'none':'1px solid var(--border)',flexShrink:0,marginTop:2}}/>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:11.5,fontWeight:m.unread?600:400,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{m.from}</div>
+                  <div style={{fontSize:10.5,color:'var(--muted)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{m.sub}</div>
+                </div>
+                <span style={{fontSize:9.5,color:'var(--dim)',fontFamily:'JetBrains Mono,monospace',flexShrink:0}}>{m.t}</span>
+              </div>
+            ))}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════ NOTES VIEW ════════════════════ */
+function NotesView({notes,setNotes,onToast}){
+  const [activeCourse,setActiveCourse]=useState('torts');
+  const [activeTopic,setActiveTopic]=useState('negligence');
+  const [activeId,setActiveId]=useState(1);
+  const [openCourses,setOpenCourses]=useState({torts:true});
+  const [navCol,setNavCol]=useState(false);
+  const [listCol,setListCol]=useState(false);
+  const [aiOpen,setAiOpen]=useState(true);
+  const [mergeMode,setMergeMode]=useState(false);
+  const [merged,setMerged]=useState(false);
+  const [recording,setRecording]=useState(false);
+  const [recSecs,setRecSecs]=useState(0);
+  const [typeFilter,setTypeFilter]=useState('all');
+  const [search,setSearch]=useState('');
+  const [activeTs,setActiveTs]=useState('11:20');
+  const [pqAns,setPqAns]=useState(null);
+  const [showNew,setShowNew]=useState(false);
+  const [newType,setNewType]=useState('brief');
+  const [newTitle,setNewTitle]=useState('');
+  const [briefDraft,setBriefDraft]=useState(null);
+  const recRef=useRef();
+
+  useEffect(()=>{
+    if(recording){recRef.current=setInterval(()=>setRecSecs(s=>s+1),1000);}
+    else{clearInterval(recRef.current);setRecSecs(0);}
+    return()=>clearInterval(recRef.current);
+  },[recording]);
+
+  const fmt=s=>`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+  const activeNote=notes.find(n=>n.id===activeId);
+  const courseObj=COURSES.find(c=>c.id===activeCourse);
+  const topicObj=courseObj?.topics.find(t=>t.id===activeTopic);
+  const filtered=notes.filter(n=>{
+    if(n.course!==activeCourse||n.topic!==activeTopic)return false;
+    if(typeFilter!=='all'&&n.type!==typeFilter)return false;
+    if(search&&!n.title.toLowerCase().includes(search.toLowerCase()))return false;
+    return true;
+  });
+  const bothCol=navCol&&listCol;
+
+  const TYPE_COLOR={brief:'var(--blue)',class:'var(--red)',auto:'var(--accent)',reading:'var(--green)'};
+  const TYPE_LBL={brief:'📋 Case Brief',class:'✎ Class Notes',auto:'🎙 Auto Notes',reading:'📖 Reading Notes'};
+  const BRIEF_FIELDS=[
+    {label:'Facts',key:'facts',rows:5},
+    {label:'Issue',key:'issue',rows:3},
+    {label:'Rule / Holding',key:'rule',rows:3},
+    {label:'Reasoning',key:'reasoning',rows:5},
+    {label:'Significance / My Notes',key:'notes',rows:3},
+  ];
+
+  useEffect(()=>{
+    if(activeNote?.type==='brief'){
+      setBriefDraft({
+        facts:activeNote.bf?.facts||'',
+        issue:activeNote.bf?.issue||'',
+        rule:activeNote.bf?.rule||'',
+        reasoning:activeNote.bf?.reasoning||'',
+        notes:activeNote.bf?.notes||'',
+      });
+    }else{
+      setBriefDraft(null);
+    }
+  },[activeId,activeNote?.type]);
+
+  function createNote(){
+    if(!newTitle.trim()){onToast('Enter a title');return;}
+    const n={id:Date.now(),course:activeCourse,topic:activeTopic,type:newType,title:newTitle,preview:'',date:'Feb 13',hasAudio:false,hasMerge:false,content:'',bf:{facts:'',issue:'',rule:'',reasoning:'',notes:''}};
+    setNotes(p=>[n,...p]);setActiveId(n.id);setShowNew(false);setNewTitle('');
+    onToast('✎ Note created');
+  }
+
+  const TIMESTAMPS=[{ts:'02:14',label:'Reasonable person'},{ts:'05:30',label:'Vaughan v. Menlove'},{ts:'11:20',label:'Hand Formula'},{ts:'18:45',label:'Carroll Towing'},{ts:'31:00',label:'Student Q: B = econ?'},{ts:'39:15',label:'Proximate cause'}];
+  const AUTOBLOCKS=[
+    {ts:'00:00',text:'Prof. Chen began discussing the duty element — "The first question you always ask is whether the defendant owed a duty to this plaintiff."'},
+    {ts:'02:14',text:'Introduced the reasonable person standard. Emphasized it is an external, objective test — not subjective to the defendant.'},
+    {ts:'05:30',text:'Vaughan v. Menlove — defendant built haystack near cottage; court rejected "honest best judgment" defense. Objective standard applies regardless of D\'s mental capacity.'},
+    {ts:'11:20',text:'HAND FORMULA — B < P × L. B = burden of adequate precautions. P = probability of harm. L = gravity of resulting injury.'},
+    {ts:'18:45',text:'Carroll Towing hypo — barge broke away from dock. Was the barge owner negligent for not having a bargee on duty?'},
+    {ts:'31:00',text:'STUDENT QUESTION: Does B include economic cost only? Prof: "No — burden can include any cost, inconvenience, or loss of utility." ← YOUR OPEN QUESTION ANSWERED'},
+    {ts:'39:15',text:'Transition to proximate cause — "But-for causation isn\'t enough."'},
+  ];
+
+  function saveBriefDraft(){
+    if(!activeNote||activeNote.type!=='brief'||!briefDraft)return;
+    setNotes(p=>p.map(n=>n.id===activeId?{...n,bf:{...n.bf,...briefDraft}}:n));
+  }
+
+  return(
+    <div className="view active notes-layout">
+      {/* ── Course Nav ── */}
+      <div className="course-panel" style={{width:navCol?0:'206px',borderRight:navCol?'none':'',overflow:navCol?'visible':'hidden'}}>
+        <PanelCollapseBtn collapsed={navCol} onToggle={()=>setNavCol(v=>!v)}/>
+        <div className="phead">
+          <span style={{fontSize:11,fontWeight:600}}>My Courses</span>
+          <button className="btn btn-primary btn-sm" onClick={()=>onToast('Course management in settings')}>+ Course</button>
+        </div>
+        <div style={{padding:'7px 10px',borderBottom:'1px solid var(--border)'}}>
+          <input className="inp" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search notes…" style={{fontSize:11.5}}/>
+        </div>
+        <div style={{flex:1,overflowY:'auto'}}>
+          {COURSES.map(course=>(
+            <div key={course.id}>
+              <div className={`cgroup-hd${activeCourse===course.id?' on':''}`}
+                onClick={()=>{setActiveCourse(course.id);setOpenCourses(p=>({...p,[course.id]:!p[course.id]}));}}>
+                <div style={{display:'flex',alignItems:'center',gap:7}}>
+                  <div className="cdot" style={{background:course.color}}/>
+                  <span style={{fontSize:12,fontWeight:500}}>{course.label}</span>
+                </div>
+                <div style={{display:'flex',alignItems:'center',gap:5}}>
+                  <span style={{fontSize:9,fontFamily:'JetBrains Mono,monospace',color:'var(--dim)',background:'var(--surface3)',padding:'1px 5px',borderRadius:99}}>{notes.filter(n=>n.course===course.id).length}</span>
+                  <span style={{fontSize:8,color:'var(--dim)'}}>{openCourses[course.id]?'▾':'▸'}</span>
+                </div>
+              </div>
+              {openCourses[course.id]&&course.topics.map(t=>(
+                <div key={t.id} className={`topic-row${activeCourse===course.id&&activeTopic===t.id?' on':''}`}
+                  onClick={()=>{setActiveCourse(course.id);setActiveTopic(t.id);setTypeFilter('all');}}>
+                  <span style={{fontSize:8,marginRight:5,opacity:.4}}>⬡</span>{t.label}
+                  <span style={{marginLeft:'auto',fontSize:9,fontFamily:'JetBrains Mono,monospace',color:'var(--dim)'}}>{notes.filter(n=>n.course===course.id&&n.topic===t.id).length||t.n}</span>
+                </div>
+              ))}
+              {openCourses[course.id]&&<div style={{padding:'4px 13px 4px 26px',fontSize:11,color:'var(--dim)',cursor:'pointer'}} onClick={()=>onToast('Add topic coming in v1.1')}>+ Add Topic</div>}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Note List ── */}
+      <div className="list-panel" style={{width:listCol?0:'256px',borderRight:listCol?'none':'',overflow:listCol?'visible':'hidden'}}>
+        <PanelCollapseBtn collapsed={listCol} onToggle={()=>setListCol(v=>!v)}/>
+        <div className="phead">
+          <div>
+            <div style={{fontSize:9.5,color:'var(--dim)',fontFamily:'JetBrains Mono,monospace',textTransform:'uppercase',letterSpacing:1}}>{courseObj?.label}</div>
+            <div style={{fontSize:13,fontWeight:600}}>{topicObj?.label}</div>
+          </div>
+          <button className="btn btn-primary btn-sm" onClick={()=>setShowNew(true)}>+</button>
+        </div>
+        <div className="nfilter">
+          {['all','brief','class','auto'].map(f=>(
+            <span key={f} className={`nfc${typeFilter===f?' on':''}`} onClick={()=>setTypeFilter(f)}>
+              {f==='all'?'All':f==='brief'?'📋':f==='class'?'✎':'🎙'} {f==='all'?'':'  '}{f==='brief'?'Brief':f==='class'?'Class':f==='auto'?'Auto':''}
+            </span>
+          ))}
+        </div>
+        <div style={{flex:1,overflowY:'auto',padding:'4px 0'}}>
+          {filtered.length===0&&<div style={{padding:'24px 14px',textAlign:'center',color:'var(--dim)',fontSize:12}}>No notes yet.<br/><button className="btn btn-primary btn-sm" style={{marginTop:8}} onClick={()=>setShowNew(true)}>+ Create One</button></div>}
+          {filtered.map(n=>(
+            <div key={n.id} className={`nitem${n.id===activeId?' on':''}`} onClick={()=>{setActiveId(n.id);setMergeMode(false);setMerged(false);}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:2}}>
+                <div className="nbadge" style={{color:TYPE_COLOR[n.type]||'var(--muted)'}}>{TYPE_LBL[n.type]||n.type}</div>
+                {n.hasAudio&&<span className="chip chip-gold" style={{fontSize:8.5}}>🎙 Audio</span>}
+                {n.hasMerge&&<span className="mbadge" onClick={e=>{e.stopPropagation();setActiveId(n.id);setMergeMode(true);setMerged(false);}}>⇌ Merge</span>}
+              </div>
+              <div className="ntitle">{n.title}</div>
+              <div className="npreview">{n.preview||n.content?.slice(0,55)}</div>
+              <div className="ndate">{n.date}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Editor Pane ── */}
+      <div className="editor">
+        {bothCol&&(
+          <div className="focus-bar">
+            <button className="btn btn-ghost btn-sm" onClick={()=>{setNavCol(false);setListCol(false);}}>›› Show panels</button>
+            <span style={{fontSize:9.5,color:'var(--dim)',fontFamily:'JetBrains Mono,monospace'}}>Focus Mode</span>
+            <span className="chip chip-gold">{courseObj?.label} › {topicObj?.label}</span>
+            <div style={{flex:1}}/>
+            <span style={{fontSize:10.5,color:'var(--dim)',fontFamily:'JetBrains Mono,monospace'}}>Full-screen editing</span>
+          </div>
+        )}
+
+        {!mergeMode?(
+          <>
+            <div className="etopbar">
+              <span className="chip" style={{background:(TYPE_COLOR[activeNote?.type]||'var(--blue)')+'22',color:TYPE_COLOR[activeNote?.type]||'var(--blue)',border:`1px solid ${TYPE_COLOR[activeNote?.type]||'var(--blue)'}33`}}>
+                {TYPE_LBL[activeNote?.type]||'Note'}
+              </span>
+              <span style={{fontSize:10.5,color:'var(--muted)',fontFamily:'JetBrains Mono,monospace'}}>{courseObj?.label} › {topicObj?.label}</span>
+              <div style={{flex:1}}/>
+              {activeNote?.hasMerge&&<button className="btn btn-ghost btn-sm" onClick={()=>{setMergeMode(true);setMerged(false);}}>⇌ Merge w/ Auto Notes</button>}
+              <button className="btn btn-ghost btn-sm" onClick={()=>setAiOpen(v=>!v)}>⚡ AI</button>
+              <button className="btn btn-ghost btn-sm" onClick={()=>onToast('Exporting as PDF…')}>⤓ Export</button>
+              <button className="btn btn-ghost btn-sm" onClick={()=>onToast('Share link copied!')}>↗ Share</button>
+              {(navCol||listCol)&&<button className="btn btn-ghost btn-sm" onClick={()=>{setNavCol(false);setListCol(false);}}>›› Show panels</button>}
+            </div>
+
+            <div className="earea">
+              <div className="escroll">
+                {activeNote?(
+                  <div className="ecol afu" key={activeId}>
+                    <input className="etitle" defaultValue={activeNote.title} placeholder="Note title…"
+                      onBlur={e=>setNotes(p=>p.map(n=>n.id===activeId?{...n,title:e.target.value}:n))}/>
+                    <div className="emeta">
+                      <span>{courseObj?.label}</span><span>·</span>
+                      {activeNote.citation&&<><span>{activeNote.citation}</span><span>·</span></>}
+                      <span>{activeNote.date}</span>
+                    </div>
+                    {activeNote.type==='brief'?(
+                      BRIEF_FIELDS.map(f=>(
+                        <div className="bsec" key={f.key}>
+                          <label className="blbl">{f.label}</label>
+                          <textarea
+                            className="bta"
+                            rows={f.rows}
+                            value={briefDraft?.[f.key]||''}
+                            onChange={e=>setBriefDraft(p=>({...p,[f.key]:e.target.value}))}
+                            onBlur={saveBriefDraft}
+                            placeholder={`Enter ${f.label.toLowerCase()}…`}
+                          />
+                        </div>
+                      ))
+                    ):(
+                      <textarea className="ebody" defaultValue={activeNote.content||''} placeholder="Start writing…"
+                        onBlur={e=>setNotes(p=>p.map(n=>n.id===activeId?{...n,content:e.target.value}:n))}/>
+                    )}
+                  </div>
+                ):(
+                  <div style={{textAlign:'center',color:'var(--muted)',marginTop:80}}>
+                    <div style={{fontSize:36,marginBottom:12}}>✎</div>
+                    <div style={{marginBottom:12}}>Select a note or create a new one</div>
+                    <button className="btn btn-primary btn-sm" onClick={()=>setShowNew(true)}>+ Create New Note</button>
+                  </div>
+                )}
+              </div>
+
+              {/* AI Panel */}
+              <div className={`aipanel${aiOpen?'':' hide'}`}>
+                <div className="aihd">
+                  <div className="aititle"><div className="aidot"/>Lex AI</div>
+                  <button className="btn btn-ghost btn-sm" onClick={()=>onToast('Refreshing AI insights…')}>↻ Refresh</button>
+                </div>
+                <div className="aiscroll">
+                  <div className="aisec">
+                    <div className="aisec-lbl">Topic Connections</div>
+                    <div className="aicard" onClick={()=>onToast('Opening linked note…')}>🔗 Links to <strong>Blyth v. Birmingham</strong> — defines "reasonable person" in your reading notes</div>
+                    <div className="aicard" onClick={()=>onToast('Opening NIED…')}>🔗 NIED section: emotional harm requires foreseeable plaintiff — same Palsgraf doctrine</div>
+                  </div>
+                  <div className="aisec">
+                    <div className="aisec-lbl">Quick Practice Question</div>
+                    <div style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:6,padding:10}}>
+                      <div style={{fontSize:12,lineHeight:1.6,marginBottom:8}}>What is Cardozo's test for duty in Palsgraf?</div>
+                      {[{t:'Duty owed to all persons in society',c:false},{t:'Duty owed only to foreseeable plaintiffs in the zone of danger',c:true},{t:'Duty determined solely by proximate cause',c:false}].map((o,i)=>(
+                        <div key={i} className={`pqopt${pqAns===i?(o.c?' ok':' no'):pqAns!==null&&o.c?' ok':''}`}
+                          onClick={()=>pqAns===null&&setPqAns(i)}>
+                          {String.fromCharCode(65+i)}. {o.t}
+                        </div>
+                      ))}
+                      {pqAns!==null&&<div style={{fontSize:10.5,color:'var(--green)',marginTop:7,lineHeight:1.5}}>✓ Cardozo: duty is relational — owed only to those in the foreseeable zone of danger.</div>}
+                    </div>
+                  </div>
+                  <div className="aisec">
+                    <div className="aisec-lbl">Exam Tip</div>
+                    <div className="aicard tip">⚡ Always argue BOTH Cardozo AND Andrews on exam hypos — they reach different results and professors love seeing both frameworks applied.</div>
+                  </div>
+                  <div className="aisec">
+                    <div className="aisec-lbl">Actions</div>
+                    <button className="btn btn-ghost btn-sm" style={{width:'100%',marginBottom:6}} onClick={()=>onToast('Generating flash cards…')}>⚡ Generate Flash Cards</button>
+                    <button className="btn btn-ghost btn-sm" style={{width:'100%',marginBottom:6}} onClick={()=>onToast('Adding to outline…')}>≡ Add to Outline</button>
+                    <button className="btn btn-ghost btn-sm" style={{width:'100%'}} onClick={()=>onToast('Creating practice question…')}>◎ Create Practice Q</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="tsbar">
+              <button className={`recbtn${recording?' live':''}`} onClick={()=>setRecording(v=>!v)}>{recording?'⏹':'⏺'}</button>
+              <div className="tstxt">{recording?`Recording lecture… ${fmt(recSecs)}`:'Click ⏺ to record · AI will auto-transcribe with timestamps'}</div>
+              {recording&&<span className="tstime">{fmt(recSecs)}</span>}
+              {!recording&&<button className="btn btn-ghost btn-sm" onClick={()=>onToast('Upload audio file for AI transcription')}>↑ Upload Audio</button>}
+            </div>
+          </>
+        ):(
+          /* ── MERGE VIEW ── */
+          <div style={{display:'flex',flexDirection:'column',flex:1,overflow:'hidden'}}>
+            <div className="mghd">
+              <span style={{fontSize:12.5,fontWeight:600,color:'var(--accent)'}}>⇌ Merge Mode</span>
+              <span style={{fontSize:11.5,color:'var(--muted)',marginLeft:8}}>{courseObj?.label} › {topicObj?.label}</span>
+              <div style={{flex:1}}/>
+              {!merged&&<button className="btn btn-primary btn-sm" onClick={()=>{setMerged(true);onToast('✓ Notes merged successfully');}}>✓ Merge into Single Note</button>}
+              <button className="btn btn-ghost btn-sm" onClick={()=>{setMergeMode(false);setMerged(false);}}>✕ Close</button>
+            </div>
+            {merged?(
+              <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+                <div style={{padding:'9px 16px',background:'rgba(74,171,120,.05)',borderBottom:'1px solid rgba(74,171,120,.2)',display:'flex',alignItems:'center',gap:10}}>
+                  <span style={{color:'var(--green)',fontSize:12.5,fontWeight:600}}>✓ Merged Successfully</span>
+                  <span style={{color:'var(--muted)',fontSize:11.5}}>Your notes + AI transcript combined with timestamp sync</span>
+                </div>
+                <textarea style={{flex:1,background:'var(--bg)',border:'none',outline:'none',padding:'22px 30px',fontSize:13,lineHeight:1.8,color:'var(--text)',fontFamily:'DM Sans,sans-serif'}}
+                  defaultValue={'MERGED — Negligence, Feb 12 + Feb 10 Lecture\n\n[From Class Notes]\n\nREASONABLE PERSON STANDARD\n• Objective test — not what D could do, but what reasonable person would\n• Vaughan v. Menlove: "honest best judgment" rejected\n\nHAND FORMULA (Carroll Towing)\nB < P × L → negligent\nB = burden of precaution, P = probability, L = magnitude of loss\n\n[From Auto Notes — Lecture Feb 10]\n\n[02:14] Reasonable person is EXTERNAL and OBJECTIVE — emphasized by Prof. Chen.\n[05:30] Vaughan v. Menlove — objective std applies regardless of D\'s mental capacity.\n[11:20] HAND FORMULA: B = burden of precautions, P = probability, L = gravity of injury.\n[31:00] ANSWERED: B includes any cost — economic or otherwise.\n[39:15] Proximate cause — "But-for causation isn\'t enough."'}/>
+              </div>
+            ):(
+              <div className="mgbody">
+                {/* Left: Your notes */}
+                <div className="mgpane">
+                  <div className="mgpane-hd">
+                    <span style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:1.5,fontFamily:'JetBrains Mono,monospace',color:'var(--muted)'}}>✎ Your Notes</span>
+                    <span className="chip chip-red">Class Notes · Feb 12</span>
+                  </div>
+                  <textarea style={{flex:1,background:'var(--bg)',border:'none',outline:'none',padding:'16px 20px',fontSize:13,lineHeight:1.75,color:'var(--text)',fontFamily:'DM Sans,sans-serif'}}
+                    defaultValue={'Negligence — Class Notes, Feb 12\n\nREASONABLE PERSON STANDARD\n• Objective test — not what this D could do\n• Vaughan v. Menlove: "honest best judgment" rejected\n\nHAND FORMULA (Carroll Towing)\nB < P × L → negligent\nB = burden of precaution\nP = probability of harm\nL = magnitude of loss\n\nQ: is B only economic cost? Need to ask Prof.'}/>
+                </div>
+
+                {/* Center: Sync map */}
+                <div className="syncmap">
+                  <div style={{padding:'8px 10px',background:'var(--surface2)',borderBottom:'1px solid var(--border)',fontSize:9.5,fontWeight:700,textTransform:'uppercase',letterSpacing:1,fontFamily:'JetBrains Mono,monospace',color:'var(--muted)'}}>⏱ Sync Map</div>
+                  <div style={{flex:1,overflowY:'auto',padding:7}}>
+                    {TIMESTAMPS.map(t=>(
+                      <div key={t.ts} className={`tslink${activeTs===t.ts?' hi':''}`} onClick={()=>setActiveTs(t.ts)}>
+                        <div className="tstlbl">{t.ts}</div>
+                        <div className="tslabel">{t.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{padding:7,borderTop:'1px solid var(--border)',textAlign:'center',fontSize:9,color:'var(--dim)',fontFamily:'JetBrains Mono,monospace'}}>6 matched segments</div>
+                </div>
+
+                {/* Right: Auto notes */}
+                <div className="mgpane" style={{borderRight:'none'}}>
+                  <div className="mgpane-hd">
+                    <span style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:1.5,fontFamily:'JetBrains Mono,monospace',color:'var(--muted)'}}>🎙 Auto Notes</span>
+                    <span className="chip chip-gold">AI Transcript · 47 min</span>
+                  </div>
+                  <div style={{flex:1,overflowY:'auto',padding:'16px 20px',fontSize:12.5,lineHeight:1.8,color:'var(--muted)',fontFamily:'JetBrains Mono,monospace',background:'var(--bg)'}}>
+                    {AUTOBLOCKS.map(b=>(
+                      <div key={b.ts} className={`tsblock${activeTs===b.ts?' hi':''}`} onClick={()=>setActiveTs(b.ts)}>
+                        [<span className="tsstamp" onClick={e=>{e.stopPropagation();setActiveTs(b.ts);}}>{b.ts}</span>] {b.text}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <Modal open={showNew} onClose={()=>setShowNew(false)} title="New Note" sub={`${courseObj?.label} · ${topicObj?.label}`} size="modal-sm">
+        <div className="mbody">
+          <div className="ff"><label className="lbl">Type</label>
+            <div className="choices">
+              {[{v:'brief',l:'📋 Case Brief'},{v:'class',l:'✎ Class Notes'},{v:'auto',l:'🎙 Auto Notes'},{v:'reading',l:'📖 Reading Notes'}].map(t=>(
+                <button key={t.v} className={`choice${newType===t.v?' picked':''}`} onClick={()=>setNewType(t.v)}>{t.l}</button>
+              ))}
+            </div>
+          </div>
+          <div className="ff"><label className="lbl">Title</label>
+            <input className="inp" value={newTitle} onChange={e=>setNewTitle(e.target.value)} placeholder="e.g. Palsgraf v. LIRR" onKeyDown={e=>e.key==='Enter'&&createNote()}/>
+          </div>
+          <button className="btn btn-primary" style={{padding:'10px',fontSize:13,width:'100%'}} onClick={createNote}>Create Note →</button>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
+/* ═══════════════ OUTLINE VIEW ══════════════════ */
+function OutlineView({onToast}){
+  const [tab,setTab]=useState('contracts');
+  const tabs=['contracts','torts','crim','civpro','conlaw'];
+  return(
+    <div className="view active afu" style={{flexDirection:'column'}}>
+      <div style={{padding:'10px 20px',borderBottom:'1px solid var(--border)',background:'var(--surface)',display:'flex',alignItems:'center',gap:8,flexShrink:0,flexWrap:'wrap'}}>
+        <div style={{display:'flex',gap:5,flex:1,flexWrap:'wrap'}}>
+          {tabs.map(t=>(
+            <button key={t} onClick={()=>setTab(t)} style={{padding:'5px 11px',borderRadius:6,border:'1px solid var(--border)',background:tab===t?'var(--accent-dim)':'transparent',color:tab===t?'var(--accent)':'var(--muted)',fontSize:11.5,cursor:'pointer',transition:'all .12s',textTransform:'capitalize'}}>
+              {COURSES.find(c=>c.id===t)?.label||t}
+            </button>
+          ))}
+        </div>
+        <button className="btn btn-ghost btn-sm" onClick={()=>onToast('Exporting as PDF…')}>⤓ PDF</button>
+        <button className="btn btn-ghost btn-sm" onClick={()=>onToast('Exporting as DOCX…')}>⤓ DOCX</button>
+        <button className="btn btn-primary btn-sm" onClick={()=>onToast('Regenerating from your notes…')}>⚡ Regenerate</button>
+      </div>
+      <div style={{flex:1,overflowY:'auto'}}>
+        <div className="outline-doc">
+          <div className="otag">Contracts · AI Auto-Outline</div>
+          <div className="otitle">Contracts I — Master Outline</div>
+          <div className="ometa">38 cases · 18 notes · Prof. Martinez · Updated Feb 13, 2025 · ⚡ AI-generated from your notes</div>
+          <div className="osec">
+            <div className="oh1"><span className="oh1-n">I.</span> Formation of a Contract</div>
+            <div className="oh2">A. Offer</div>
+            <div className="opt">Manifestation of willingness to enter a bargain; must be definite, communicated, and show present intent. (<span className="cite">Restatement § 24</span>)</div>
+            <div className="opt">Advertisements generally not offers but invitations to deal — unless specific and leave nothing open. (<span className="cite">Lefkowitz v. Great Minneapolis Surplus Store</span>)</div>
+            <div className="oh2">B. Acceptance</div>
+            <div className="opt">Mirror image rule (common law): acceptance must match offer exactly. Any variation = rejection + counteroffer.</div>
+            <div className="opt">Mailbox rule: acceptance effective upon dispatch. Revocation effective only upon receipt.</div>
+            <div className="opt">UCC § 2-207 Battle of the Forms: additional terms in acceptance don't necessarily kill the deal for goods contracts.</div>
+            <div className="oh2">C. Consideration</div>
+            <div className="opt">Bargained-for exchange — benefit to promisor or detriment to promisee. (<span className="cite">Hamer v. Sidway</span>)</div>
+            <div className="opt">Pre-existing duty rule: performing a legal obligation already owed is not consideration. (<span className="cite">Alaska Packers v. Domenico</span>)</div>
+            <div className="opt">Past consideration is not valid — the act must be in exchange for the promise.</div>
+          </div>
+          <div className="osec">
+            <div className="oh1"><span className="oh1-n">II.</span> Breach &amp; Remedies</div>
+            <div className="oh2">A. Material vs. Minor Breach</div>
+            <div className="opt">Material breach discharges non-breaching party's duty to perform. Factors: extent of non-performance, likelihood of cure, adequacy of damages. (<span className="cite">Jacob &amp; Youngs v. Kent</span>)</div>
+            <div className="oh2">B. Expectation Damages</div>
+            <div className="opt">Benefit of the bargain — put plaintiff in the position had contract been performed. Most common remedy.</div>
+            <div className="oh2">C. Consequential Damages</div>
+            <div className="opt">Must be foreseeable at formation — either naturally arising from breach or within parties' contemplation. (<span className="cite">Hadley v. Baxendale</span>) ← <em style={{color:'var(--accent)'}}>Your most recent brief</em></div>
+            <div className="oh2">D. Reliance &amp; Restitution</div>
+            <div className="opt">Reliance: restore plaintiff to pre-contract position. Restitution: prevents unjust enrichment — defendant disgorges benefit conferred.</div>
+          </div>
+          <div className="osec">
+            <div className="oh1"><span className="oh1-n">III.</span> Defenses &amp; Excuses</div>
+            <div className="oh2">A. Fraud, Duress, Undue Influence</div>
+            <div className="opt">Grounds to void or voidize a contract. Duress: improper threat leaving no reasonable alternative. (<span className="cite">Austin Instruments v. Loral Corp.</span>)</div>
+            <div className="oh2">B. Mistake</div>
+            <div className="opt">Mutual mistake about a basic assumption → voidable if it materially affects agreed exchange. (<span className="cite">Raffles v. Wichelhaus</span>)</div>
+            <div className="oh2">C. Impossibility / Frustration of Purpose</div>
+            <div className="opt">Impossibility: supervening event makes performance objectively impossible. Frustration: performance possible but purpose is entirely destroyed. (<span className="cite">Krell v. Henry</span>)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════ PRACTICE VIEW ═════════════════ */
+function PracticeView({onToast}){
+  const [qi,setQi]=useState(0);
+  const [ans,setAns]=useState(null);
+  const [cFilter,setCFilter]=useState('All');
+  const [score,setScore]=useState({c:0,t:0});
+  const q=PRACTICE_QS[qi];
+
+  function pick(i){
+    if(ans!==null)return;
+    setAns(i);
+    setScore(s=>({c:s.c+(i===q.correct?1:0),t:s.t+1}));
+  }
+  function next(){setAns(null);setQi(p=>(p+1)%PRACTICE_QS.length);}
+
+  return(
+    <div className="view active afu" style={{flexDirection:'column'}}>
+      <div className="pracwrap">
+        <div className="prachd">
+          <div>
+            <div className="prgtitle">Practice Questions</div>
+            <div className="prgsub">AI-generated from your notes · Question {qi+1} of {PRACTICE_QS.length}</div>
+          </div>
+          <div style={{textAlign:'right'}}>
+            <div style={{fontSize:11,color:'var(--muted)',fontFamily:'JetBrains Mono,monospace',marginBottom:4}}>
+              {score.t>0?`${Math.round(score.c/score.t*100)}% avg · `:''}{qi+1}/{PRACTICE_QS.length}
+            </div>
+            <div className="prgbar"><div className="prgfill" style={{width:`${((qi+1)/PRACTICE_QS.length)*100}%`}}/></div>
+          </div>
+        </div>
+        <div style={{display:'flex',gap:7,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
+          {['All','Contracts','Torts','Crim Law','Mixed'].map(f=>(
+            <span key={f} className={`chip${cFilter===f?' chip-gold':' chip-dim'}`} style={{cursor:'pointer'}} onClick={()=>setCFilter(f)}>{f}</span>
+          ))}
+          <span style={{marginLeft:'auto',fontSize:11,color:'var(--muted)'}}>Score: {score.c}/{score.t}</span>
+        </div>
+        <div className="qcard afu" key={qi}>
+          <div className="qtopic">{q.course} · {q.topic} · {q.sub}</div>
+          <div className="qtext">{q.text}</div>
+          {q.opts.map((o,i)=>{
+            const isOk=i===q.correct;
+            const cls=ans!==null?(i===ans?(isOk?' ok':' no'):(isOk?' ok':'')):'';
+            return(
+              <div key={i} className={`qopt${cls}${ans!==null?' done':''}`} onClick={()=>pick(i)}>
+                <span className="qletter">{String.fromCharCode(65+i)}</span><span>{o}</span>
+              </div>
+            );
+          })}
+          {ans!==null&&<div className="qexplain"><strong>{ans===q.correct?'✅ Correct!':'❌ Incorrect.'}</strong> {q.exp}</div>}
+        </div>
+        <div style={{display:'flex',gap:9}}>
+          <button className="btn btn-ghost btn-sm" onClick={()=>{setAns(null);setQi(p=>Math.max(0,p-1));}}>← Previous</button>
+          <button className="btn btn-primary btn-sm" onClick={next}>{ans===null?'Skip →':'Next Question →'}</button>
+          <button className="btn btn-ghost btn-sm" style={{marginLeft:'auto'}} onClick={()=>onToast('Flash card deck created from this question!')}>⊞ Save as Flash Card</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════ CALENDAR VIEW ════════════════ */
+function CalendarView({onToast}){
+  const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const cells=[
+    ...Array.from({length:4},(_,i)=>({d:26+i,other:true})),
+    ...Array.from({length:28},(_,i)=>({d:i+1,other:false,today:i+1===13})),
+    ...Array.from({length:3},(_,i)=>({d:i+1,other:true})),
+  ];
+  return(
+    <div className="view active afu" style={{flexDirection:'column'}}>
+      <div className="calwrap">
+        <div className="calhd">
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <button className="btn btn-ghost btn-sm" onClick={()=>onToast('← Previous month')}>◂</button>
+            <div className="calmonth">February 2025</div>
+            <button className="btn btn-ghost btn-sm" onClick={()=>onToast('Next month →')}>▸</button>
+          </div>
+          <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+            {[{l:'Class',c:'#5283e0'},{l:'Assignment',c:'#d95f5f'},{l:'Exam',c:'#c9a84c'},{l:'Office Hours',c:'#4aab78'}].map(x=>(
+              <span key={x.l} className="chip" style={{background:x.c+'22',color:x.c,border:`1px solid ${x.c}44`}}>● {x.l}</span>
+            ))}
+            <span style={{fontSize:11,color:'var(--muted)'}}>Synced: Canvas + Google Calendar</span>
+            <button className="btn btn-primary btn-sm" onClick={()=>onToast('Add event modal…')}>+ Event</button>
+          </div>
+        </div>
+        <div className="calgrid">
+          {days.map(d=><div key={d} className="caldh">{d}</div>)}
+          {cells.map((c,i)=>(
+            <div key={i} className={`calcel${c.other?' other':''}${c.today?' today':''}`} onClick={()=>onToast(`Selected Feb ${c.d}`)}>
+              <div className="calnum">{c.d}</div>
+              {(!c.other?(CAL_EVENTS[c.d]||[]):[]).map((ev,j)=>(
+                <div key={j} className="calev" style={{background:ev.c,color:ev.tc}}>{ev.l}</div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════ DOCS VIEW ═════════════════════ */
+function DocsView({docs,setDocs,onToast}){
+  const [cF,setCF]=useState('all');
+  const [tF,setTF]=useState('all');
+  const [panCol,setPanCol]=useState(false);
+  const [modal,setModal]=useState(false);
+  const [dName,setDName]=useState('');
+  const [dType,setDType]=useState('docx');
+  const [dCourse,setDCourse]=useState('');
+  const [dTmpl,setDTmpl]=useState('Blank');
+
+  const filtered=docs.filter(d=>{
+    if(cF!=='all'&&d.course!==cF)return false;
+    if(tF!=='all'&&d.type!==tF)return false;
+    return true;
+  });
+
+  function create(){
+    if(!dName.trim()){onToast('Enter a document name');return;}
+    const icons={docx:'📝',xlsx:'📊',form:'📋'};
+    setDocs(p=>[{id:Date.now(),icon:icons[dType]||'📝',name:dName,type:dType,course:dCourse,modified:'Just now'},...p]);
+    setModal(false);setDName('');onToast('✓ Document created');
+  }
+
+  return(
+    <div className="view active docs-layout afu">
+      <div className="course-panel" style={{width:panCol?0:'206px',borderRight:panCol?'none':''}}>
+        <PanelCollapseBtn collapsed={panCol} onToggle={()=>setPanCol(v=>!v)}/>
+        <div className="phead">
+          <span style={{fontSize:11,fontWeight:600}}>Documents</span>
+          <button className="btn btn-primary btn-sm" onClick={()=>setModal(true)}>+ New</button>
+        </div>
+        <div style={{flex:1,overflowY:'auto'}}>
+          <div className={`cgroup-hd${cF==='all'&&tF==='all'?' on':''}`} style={{cursor:'pointer'}} onClick={()=>{setCF('all');setTF('all');}}>
+            <div style={{display:'flex',alignItems:'center',gap:7}}><span>📁</span><span style={{fontSize:12,fontWeight:500}}>All Documents</span></div>
+            <span style={{fontSize:9,fontFamily:'JetBrains Mono,monospace',color:'var(--dim)',background:'var(--surface3)',padding:'1px 5px',borderRadius:99}}>{docs.length}</span>
+          </div>
+          <div style={{padding:'6px 13px 3px',fontSize:9,color:'var(--dim)',letterSpacing:2,fontFamily:'JetBrains Mono,monospace',textTransform:'uppercase'}}>By Course</div>
+          {COURSES.map(c=>(
+            <div key={c.id} className={`cgroup-hd${cF===c.id?' on':''}`} style={{padding:'7px 13px',cursor:'pointer'}} onClick={()=>{setCF(c.id);setTF('all');}}>
+              <div style={{display:'flex',alignItems:'center',gap:7}}><div className="cdot" style={{background:c.color}}/><span style={{fontSize:12}}>{c.label}</span></div>
+              <span style={{fontSize:9,fontFamily:'JetBrains Mono,monospace',color:'var(--dim)',background:'var(--surface3)',padding:'1px 5px',borderRadius:99}}>{docs.filter(d=>d.course===c.id).length}</span>
+            </div>
+          ))}
+          <div style={{padding:'7px 13px 3px',fontSize:9,color:'var(--dim)',letterSpacing:2,fontFamily:'JetBrains Mono,monospace',textTransform:'uppercase'}}>By Type</div>
+          {[{id:'docx',l:'Word Docs',ic:'📝'},{id:'xlsx',l:'Spreadsheets',ic:'📊'},{id:'form',l:'Forms / Checklists',ic:'📋'}].map(t=>(
+            <div key={t.id} className={`cgroup-hd${tF===t.id?' on':''}`} style={{padding:'7px 13px',cursor:'pointer'}} onClick={()=>{setTF(t.id);setCF('all');}}>
+              <div style={{display:'flex',alignItems:'center',gap:7}}><span>{t.ic}</span><span style={{fontSize:12}}>{t.l}</span></div>
+              <span style={{fontSize:9,fontFamily:'JetBrains Mono,monospace',color:'var(--dim)',background:'var(--surface3)',padding:'1px 5px',borderRadius:99}}>{docs.filter(d=>d.type===t.id).length}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="docs-main">
+        {panCol&&<div className="focus-bar"><button className="btn btn-ghost btn-sm" onClick={()=>setPanCol(false)}>›› Show panel</button><span style={{fontSize:9.5,color:'var(--dim)',fontFamily:'JetBrains Mono,monospace'}}>Full-screen view</span></div>}
+        <div className="docs-tb">
+          <span style={{fontSize:13,fontWeight:600}}>{cF==='all'&&tF==='all'?'All Documents':cF!=='all'?COURSES.find(c=>c.id===cF)?.label:tF}</span>
+          <div style={{flex:1}}/>
+          <button className="btn btn-primary btn-sm" onClick={()=>setModal(true)}>+ New Document</button>
+        </div>
+        <div className="docs-quick">
+          {[{ic:'📝',l:'Word Document',s:'Memos, briefs, essays',t:'docx'},{ic:'📊',l:'Spreadsheet',s:'Case trackers, grades',t:'xlsx'},{ic:'📋',l:'Form / Checklist',s:'Issue spotters, rubrics',t:'form'},{ic:'⚡',l:'From Template',s:'Legal memo, case chart',t:'docx'}].map(b=>(
+            <div key={b.l} className="dqbtn" onClick={()=>{setDType(b.t);setModal(true);}}>
+              <div style={{fontSize:19,marginBottom:5}}>{b.ic}</div>
+              <div style={{fontSize:11,fontWeight:600}}>{b.l}</div>
+              <div style={{fontSize:10,color:'var(--muted)',marginTop:1}}>{b.s}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{flex:1,overflowY:'auto',padding:16}}>
+          {filtered.length===0?<div style={{textAlign:'center',padding:40,color:'var(--dim)'}}>No documents found.</div>:(
+            <div className="docs-grid">
+              {filtered.map(d=>{
+                const course=COURSES.find(c=>c.id===d.course);
+                return(
+                  <div key={d.id} className="dcard" onClick={()=>onToast(`Opening "${d.name}"…`)}>
+                    <div className="dicon">{d.icon}</div>
+                    <div className="dname">{d.name}</div>
+                    <div className="dmeta">{d.modified}</div>
+                    <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
+                      {course&&<span className="chip" style={{background:course.color+'22',color:course.color,border:`1px solid ${course.color}44`}}>{course.label}</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <Modal open={modal} onClose={()=>setModal(false)} title="New Document" sub="Create and link your document">
+        <div className="mbody">
+          <div className="ff"><label className="lbl">Type</label>
+            <div className="choices">{[{v:'docx',l:'📝 Word Doc'},{v:'xlsx',l:'📊 Spreadsheet'},{v:'form',l:'📋 Form'}].map(t=>(
+              <button key={t.v} className={`choice${dType===t.v?' picked':''}`} onClick={()=>setDType(t.v)}>{t.l}</button>))}</div>
+          </div>
+          <div className="ff"><label className="lbl">Document Name</label>
+            <input className="inp" value={dName} onChange={e=>setDName(e.target.value)} placeholder="e.g. Torts Final Outline" onKeyDown={e=>e.key==='Enter'&&create()}/>
+          </div>
+          <div className="frow">
+            <div className="ff"><label className="lbl">Course</label>
+              <select className="sel" value={dCourse} onChange={e=>setDCourse(e.target.value)}>
+                <option value="">No course</option>
+                {COURSES.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="ff"><label className="lbl">Template</label>
+            <div className="choices">{['Blank','Legal Memo','Case Brief','Issue Spotter','Case Chart','Grade Tracker'].map(t=>(
+              <button key={t} className={`choice${dTmpl===t?' picked':''}`} onClick={()=>setDTmpl(t)}>{t}</button>))}</div>
+          </div>
+          <button className="btn btn-primary" style={{padding:10,fontSize:13,width:'100%'}} onClick={create}>Create Document →</button>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
+/* ═══════════════ TEXTBOOKS VIEW ════════════════ */
+function TextbooksView({onToast}){
+  const [libCol,setLibCol]=useState(false);
+  const [annOpen,setAnnOpen]=useState(true);
+  const [tocOpen,setTocOpen]=useState(false);
+  const [activeBook,setActiveBook]=useState('prosser');
+  const [hlColor,setHlColor]=useState('yellow');
+  const [tool,setTool]=useState('highlight');
+  const [fontSize,setFontSize]=useState(14);
+  const [page,setPage]=useState(47);
+  const [anns,setAnns]=useState(INIT_ANNOTATIONS);
+  const [selPopup,setSelPopup]=useState({show:false,x:0,y:0});
+  const [books,setBooks]=useState(INIT_BOOKS);
+  const savedRange=useRef(null);
+  const paneRef=useRef();
+  const fileRef=useRef();
+
+  const TOC=['Ch. 1 — Introduction to Torts','Ch. 2 — Intentional Torts','Ch. 3 — Negligence','  § 3.1 The Reasonable Person','  § 3.2 The Hand Formula','  § 3.3 Custom as Evidence','Ch. 4 — Causation','Ch. 5 — Proximate Cause','Ch. 6 — Damages'];
+
+  useEffect(()=>{
+    function onUp(e){
+      const pop=document.querySelector('.selpop');
+      if(pop&&pop.contains(e.target))return;
+      const sel=window.getSelection();
+      if(sel&&sel.toString().trim().length>3&&paneRef.current&&paneRef.current.contains(e.target)){
+        const r=sel.getRangeAt(0);const rect=r.getBoundingClientRect();
+        savedRange.current=r.cloneRange();
+        setSelPopup({show:true,x:rect.left+rect.width/2-170,y:rect.top-46});
+      } else setSelPopup(p=>({...p,show:false}));
+    }
+    document.addEventListener('mouseup',onUp);
+    return()=>document.removeEventListener('mouseup',onUp);
+  },[]);
+
+  function doHighlight(color){
+    const r=savedRange.current;if(!r)return;
+    try{
+      const sp=document.createElement('span');sp.className=`hl${color[0]}`;
+      r.surroundContents(sp);
+      addAnn(sp.textContent.trim().slice(0,80),color);
+    }catch{
+      const f=r.extractContents();
+      const sp=document.createElement('span');sp.className=`hl${color[0]}`;sp.appendChild(f);
+      r.insertNode(sp);addAnn(sp.textContent.trim().slice(0,80),color);
+    }
+    window.getSelection().removeAllRanges();
+    setSelPopup(p=>({...p,show:false}));savedRange.current=null;
+  }
+  function addAnn(quote,color){
+    setAnns(p=>[{id:Date.now(),quote:`"${quote}${quote.length>=80?'…':''}"`,note:'',color,page},...p]);
+    if(!annOpen)setAnnOpen(true);
+  }
+  function handleUpload(e){
+    const f=e.target.files[0];if(!f)return;
+    const name=f.name.replace(/\.(pdf|epub|txt)$/i,'');
+    const icons=['📕','📗','📘','📙'],bgs=['rgba(217,95,95,.14)','rgba(74,171,120,.14)','rgba(82,131,224,.14)','rgba(201,168,76,.14)'];
+    const i=Math.floor(Math.random()*4);
+    const nb={id:Date.now().toString(),title:name,sub:'Uploaded',icon:icons[i],bg:bgs[i],prog:0};
+    setBooks(p=>[nb,...p]);setActiveBook(nb.id);
+    onToast(`📚 "${name}" added to your library`);
+  }
+
+  return(
+    <div className="view active tbview afu">
+      {/* Library */}
+      <div className="tblib" style={{width:libCol?0:'212px',borderRight:libCol?'none':''}}>
+        <PanelCollapseBtn collapsed={libCol} onToggle={()=>setLibCol(v=>!v)}/>
+        <div className="phead">
+          <span style={{fontSize:11,fontWeight:600}}>My Library</span>
+          <button className="btn btn-primary btn-sm" onClick={()=>fileRef.current.click()}>+ Add</button>
+        </div>
+        <input ref={fileRef} type="file" accept=".pdf,.epub,.txt" style={{display:'none'}} onChange={handleUpload}/>
+        <div style={{flex:1,overflowY:'auto'}}>
+          {books.map(b=>(
+            <div key={b.id} className={`tbbook${activeBook===b.id?' on':''}`} onClick={()=>setActiveBook(b.id)}>
+              <div className="tbthumb" style={{background:b.bg}}>{b.icon}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:11.5,fontWeight:600,lineHeight:1.3,marginBottom:2}}>{b.title}</div>
+                <div style={{fontSize:9.5,color:'var(--dim)',fontFamily:'JetBrains Mono,monospace'}}>{b.sub}</div>
+                <div className="tbprog"><div className="tbprogf" style={{width:`${b.prog}%`}}/></div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{margin:10,border:'2px dashed var(--border)',borderRadius:7,padding:'16px 10px',textAlign:'center',cursor:'pointer',fontSize:11,color:'var(--dim)',transition:'all .14s'}}
+          onClick={()=>fileRef.current.click()}
+          onMouseOver={e=>{e.currentTarget.style.borderColor='rgba(201,168,76,.4)';e.currentTarget.style.color='var(--accent)';}}
+          onMouseOut={e=>{e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.color='var(--dim)';}}>
+          <div style={{fontSize:18,marginBottom:5}}>📂</div>
+          <div style={{fontWeight:600,marginBottom:2}}>Add Textbook</div>
+          <div style={{fontSize:10}}>PDF, ePub, or text file</div>
+        </div>
+      </div>
+
+      {/* Reader */}
+      <div className="tbreader">
+        <div className="tbtb">
+          <div className="tbtg">
+            <button className="tbt" onClick={()=>setLibCol(v=>!v)} title="Toggle library">☰</button>
+          </div>
+          <div className="tbtg">
+            <button className="pgbtn" onClick={()=>setPage(p=>Math.max(1,p-1))}>‹</button>
+            <span style={{fontSize:10.5,fontFamily:'JetBrains Mono,monospace',color:'var(--muted)',margin:'0 6px'}}>Ch. 3 · p. {page}</span>
+            <button className="pgbtn" onClick={()=>setPage(p=>p+1)}>›</button>
+          </div>
+          <div className="tbtg">
+            {[{id:'highlight',ic:'🖊',title:'Highlight'},{id:'note',ic:'💬',title:'Add Note'},{id:'erase',ic:'◻',title:'Erase'}].map(t=>(
+              <button key={t.id} className={`tbt${tool===t.id?' on':''}`} onClick={()=>setTool(t.id)} title={t.title}>{t.ic}</button>
+            ))}
+          </div>
+          <div className="tbtg">
+            {['yellow','green','pink','blue'].map(c=>(
+              <div key={c} className={`hlsw${hlColor===c?' on':''}`} style={{background:HL[c]}}
+                onClick={()=>{setHlColor(c);setTool('highlight');}}
+                title={c.charAt(0).toUpperCase()+c.slice(1)}/>
+            ))}
+          </div>
+          <div className="tbtg">
+            <button className="tbt" onClick={()=>setFontSize(f=>Math.max(11,f-1))} title="Smaller text">A−</button>
+            <button className="tbt" onClick={()=>setFontSize(f=>Math.min(20,f+1))} title="Larger text">A+</button>
+          </div>
+          <div className="tbtg">
+            <button className={`tbt${tocOpen?' on':''}`} onClick={()=>setTocOpen(v=>!v)} title="Table of Contents">≡</button>
+            <button className={`tbt${annOpen?' on':''}`} onClick={()=>setAnnOpen(v=>!v)} title="Annotations">📝</button>
+          </div>
+          <div style={{flex:1}}/>
+          <button className="btn btn-ghost btn-sm" onClick={()=>onToast('✎ Selection copied to Notes')}>→ Copy to Notes</button>
+        </div>
+
+        <div style={{display:'flex',flex:1,overflow:'hidden'}}>
+          {/* TOC */}
+          <div style={{width:tocOpen?192:0,overflow:'hidden',background:'var(--surface)',borderRight:'1px solid var(--border)',transition:'width .2s',flexShrink:0}}>
+            <div style={{padding:'10px 13px',borderBottom:'1px solid var(--border)',fontSize:9.5,fontWeight:700,letterSpacing:2,textTransform:'uppercase',color:'var(--dim)',fontFamily:'JetBrains Mono,monospace'}}>Contents</div>
+            <div style={{padding:'6px 0'}}>
+              {TOC.map((t,i)=>(
+                <div key={i} className={`tb-toc-item${t.startsWith('  ')?'  tbst':''}${i===2||[3,4,5].includes(i)?'  on':''}`}
+                  style={{padding:`4px ${t.startsWith('  ')?'24px':'13px'}`,fontSize:t.startsWith('  ')?11:11.5,color:[2,3,4,5].includes(i)?'var(--accent)':'var(--muted)',cursor:'pointer',borderLeft:`2px solid ${[2,3,4,5].includes(i)?'var(--accent)':'transparent'}`,background:[2,3,4,5].includes(i)?'var(--accent-dim)':'',transition:'all .1s'}}
+                  onClick={()=>onToast(`Jumping to: ${t.trim()}`)}>
+                  {t.trim()}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Reading pane */}
+          <div className="tbrp" ref={paneRef}>
+            <div className="tbpage" style={{fontSize}} dangerouslySetInnerHTML={{__html:TB_CONTENT}}/>
+          </div>
+
+          {/* Annotations */}
+          <div className="tbann" style={{width:annOpen?250:0,overflow:annOpen?'':'hidden',borderLeft:annOpen?'':'none'}}>
+            <div style={{padding:'10px 13px',borderBottom:'1px solid var(--border)',fontSize:9.5,fontWeight:700,letterSpacing:1.5,textTransform:'uppercase',color:'var(--dim)',fontFamily:'JetBrains Mono,monospace',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
+              <span>Annotations ({anns.length})</span>
+              <span style={{cursor:'pointer',fontSize:15,fontWeight:300,color:'var(--muted)'}} onClick={()=>setAnnOpen(false)}>×</span>
+            </div>
+            <div style={{flex:1,overflowY:'auto',padding:8}}>
+              {anns.map(a=>(
+                <div key={a.id} className="tbaitem">
+                  <div className="tbaquote">
+                    <span style={{display:'inline-block',width:7,height:7,borderRadius:'50%',background:HLDOT[a.color],marginRight:5}}/>
+                    {a.quote}
+                  </div>
+                  {a.note&&<div className="tbanote">{a.note}</div>}
+                  <div className="tbameta">Ch. 3 · p. {a.page} · {a.color.charAt(0).toUpperCase()+a.color.slice(1)}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{padding:9,borderTop:'1px solid var(--border)',flexShrink:0}}>
+              <button className="btn btn-ghost btn-sm" style={{width:'100%'}} onClick={()=>onToast('✎ All annotations exported to Notes')}>→ Export All to Notes</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Selection popup */}
+      {selPopup.show&&(
+        <div className="selpop" style={{left:Math.max(8,selPopup.x),top:Math.max(8,selPopup.y)}}>
+          <button className="selact" onClick={()=>doHighlight(hlColor)}>Highlight</button>
+          <div className="seldiv"/>
+          {['yellow','green','pink','blue'].map(c=>(
+            <div key={c} className="selhl" style={{background:HL[c],border:'1px solid transparent'}} onClick={()=>doHighlight(c)}/>
+          ))}
+          <div className="seldiv"/>
+          <button className="selact" onClick={()=>{onToast('Copied to Notes');setSelPopup(p=>({...p,show:false}));}}>→ Note</button>
+          <button
+            className="selact"
+            onClick={()=>{
+              const selected=window.getSelection()?.toString()||'';
+              if(navigator.clipboard?.writeText){
+                navigator.clipboard.writeText(selected)
+                  .then(()=>onToast('Copied to clipboard'))
+                  .catch(()=>onToast('Clipboard blocked by browser'));
+              }else{
+                onToast('Clipboard API unavailable');
+              }
+              setSelPopup(p=>({...p,show:false}));
+            }}
+          >
+            Copy
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════ INTEGRATIONS ══════════════════ */
+function IntegrationsView({onToast}){
+  const ints=[
+    {ic:'🎓',bg:'rgba(82,131,224,.14)',name:'Canvas LMS',desc:'Sync course materials, assignments, due dates, and syllabi directly into LexNotes.',connected:true,status:'5 courses synced'},
+    {ic:'📅',bg:'rgba(217,95,95,.14)',name:'Google Calendar',desc:'Two-way sync. Class schedules, office hours, and deadlines auto-populate LexNotes calendar.',connected:true,status:'Syncing live'},
+    {ic:'📘',bg:'rgba(0,120,212,.14)',name:'Microsoft 365',desc:'Sync with Outlook and OneDrive. Export outlines and briefs directly to Word.',connected:false},
+    {ic:'🖤',bg:'rgba(74,171,120,.14)',name:'Blackboard',desc:'Pull course documents, announcements, and grade updates from Blackboard.',connected:false},
+    {ic:'🗒',bg:'rgba(255,204,0,.14)',name:'Quimbee',desc:'Import case summaries and supplement your briefs automatically.',connected:false},
+    {ic:'🎙',bg:'rgba(201,168,76,.14)',name:'Zoom / Teams',desc:'Auto-import lecture recordings and generate AI notes from virtual classes.',connected:false,soon:true},
+  ];
+  return(
+    <div className="view active afu" style={{flexDirection:'column'}}>
+      <div className="intwrap">
+        <div>
+          <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700}}>Integrations</div>
+          <div style={{fontSize:12.5,color:'var(--muted)',marginTop:3}}>Connect your tools to keep everything in one place</div>
+        </div>
+        <div className="intgrid">
+          {ints.map(i=>(
+            <div key={i.name} className={`intcard${i.connected?' conn':''}`}>
+              <div className="inticon" style={{background:i.bg}}>{i.ic}</div>
+              <div className="intname">{i.name}</div>
+              <div className="intdesc">{i.desc}</div>
+              <div className="intstatus">
+                <div className="sdot" style={{background:i.connected?'var(--green)':i.soon?'var(--accent)':'var(--dim)'}}/>
+                <span style={{color:i.connected?'var(--green)':i.soon?'var(--accent)':'var(--muted)'}}>{i.connected?'Connected':i.soon?'Coming soon':'Not connected'}</span>
+                {i.status&&<span style={{color:'var(--dim)',marginLeft:'auto'}}>{i.status}</span>}
+                {!i.connected&&!i.soon&&<button className="btn btn-ghost btn-sm" style={{marginLeft:'auto'}} onClick={()=>onToast(`Connecting to ${i.name}…`)}>Connect</button>}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:10,padding:18,marginTop:8}}>
+          <div style={{fontSize:11,fontWeight:700,marginBottom:7,fontFamily:'JetBrains Mono,monospace',textTransform:'uppercase',letterSpacing:1,color:'var(--accent)'}}>AI Calendar Intelligence</div>
+          <div style={{fontSize:12.5,lineHeight:1.7,color:'var(--muted)'}}>LexNotes AI reads your Canvas assignments, Google Calendar events, and class schedules to build a <strong style={{color:'var(--text)'}}>unified smart calendar</strong>. It detects conflicts, suggests study blocks before exams, and flags reading assignments that haven't been noted yet.</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════ SETTINGS ═══════════════════ */
+function SettingsView({onToast}){
+  const [notifs,setNotifs]=useState({email:true,push:true,canvas:true,reminders:false});
+  const [aiPrefs,setAiPrefs]=useState({autoSuggest:true,flashCards:true,outlineSync:true,practiceQ:false});
+  const [display,setDisplay]=useState({compactMode:false,sidebarMini:false,monoBody:false});
+  const [settingTab,setSettingTab]=useState('account');
+  const settingTabs=[{id:'account',l:'Account'},{id:'notifications',l:'Notifications'},{id:'ai',l:'AI Preferences'},{id:'display',l:'Display'},{id:'billing',l:'Billing'}];
+  return(
+    <div className="view active afu" style={{flexDirection:'column'}}>
+      <div className="setwrap">
+        <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,marginBottom:16}}>Settings</div>
+        <div className="setgrid">
+          {/* Nav */}
+          <div className="setnav">
+            {settingTabs.map(t=>(
+              <div key={t.id} className={`nav${settingTab===t.id?' on':''}`} onClick={()=>setSettingTab(t.id)} style={{marginBottom:2}}>
+                <span className="nav-ic">{t.id==='account'?'👤':t.id==='notifications'?'🔔':t.id==='ai'?'⚡':t.id==='display'?'◑':'💳'}</span>
+                <span className="nav-lbl">{t.l}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Content */}
+          <div className="setsection">
+            {settingTab==='account'&&<>
+              <div>
+                <div style={{fontSize:14,fontWeight:600,marginBottom:12}}>Profile</div>
+                <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:16}}>
+                  <div style={{width:52,height:52,borderRadius:'50%',background:'linear-gradient(135deg,var(--accent),#7a5c18)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,fontWeight:700,color:'#0b0c0e'}}>JD</div>
+                  <div>
+                    <div style={{fontWeight:600}}>Jordan Davis</div>
+                    <div style={{fontSize:11.5,color:'var(--muted)'}}>jordan.davis@lawschool.edu</div>
+                    <button className="btn btn-ghost btn-sm" style={{marginTop:6}} onClick={()=>onToast('Upload photo feature in v1.1')}>Change Photo</button>
+                  </div>
+                </div>
+              </div>
+              <div className="ff"><label className="lbl">Full Name</label><input className="inp" defaultValue="Jordan Davis"/></div>
+              <div className="ff"><label className="lbl">Law School</label><input className="inp" defaultValue="Georgetown University Law Center"/></div>
+              <div className="frow">
+                <div className="ff"><label className="lbl">Year</label>
+                  <select className="sel"><option>1L</option><option>2L</option><option>3L</option><option>LLM</option></select>
+                </div>
+                <div className="ff"><label className="lbl">Semester</label>
+                  <select className="sel"><option>Fall 2025</option><option>Spring 2025</option></select>
+                </div>
+              </div>
+              <button className="btn btn-primary" style={{width:'100%',padding:9}} onClick={()=>onToast('Profile saved ✓')}>Save Changes</button>
+            </>}
+            {settingTab==='notifications'&&<>
+              <div style={{fontSize:14,fontWeight:600,marginBottom:4}}>Notifications</div>
+              {[
+                {k:'email',l:'Email Notifications',s:'Assignment reminders, exam alerts'},
+                {k:'push',l:'Push Notifications',s:'In-browser alerts for due dates'},
+                {k:'canvas',l:'Canvas Sync Alerts',s:'Notify when new content syncs'},
+                {k:'reminders',l:'Study Reminders',s:'AI-generated daily study prompts'},
+              ].map(n=>(
+                <div key={n.k} className="setrow">
+                  <div><div style={{fontSize:13,fontWeight:500}}>{n.l}</div><div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>{n.s}</div></div>
+                  <Toggle on={notifs[n.k]} onToggle={()=>setNotifs(p=>({...p,[n.k]:!p[n.k]}))}/>
+                </div>
+              ))}
+            </>}
+            {settingTab==='ai'&&<>
+              <div style={{fontSize:14,fontWeight:600,marginBottom:4}}>AI Preferences</div>
+              {[
+                {k:'autoSuggest',l:'Auto Topic Connections',s:'Show related notes when editing'},
+                {k:'flashCards',l:'Flash Card Generation',s:'Auto-generate flash cards from briefs'},
+                {k:'outlineSync',l:'Outline Auto-Sync',s:'Regenerate outline when notes change'},
+                {k:'practiceQ',l:'Auto Practice Questions',s:'Generate questions after each brief'},
+              ].map(p=>(
+                <div key={p.k} className="setrow">
+                  <div><div style={{fontSize:13,fontWeight:500}}>{p.l}</div><div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>{p.s}</div></div>
+                  <Toggle on={aiPrefs[p.k]} onToggle={()=>setAiPrefs(pr=>({...pr,[p.k]:!pr[p.k]}))}/>
+                </div>
+              ))}
+            </>}
+            {settingTab==='display'&&<>
+              <div style={{fontSize:14,fontWeight:600,marginBottom:4}}>Display</div>
+              {[
+                {k:'compactMode',l:'Compact Mode',s:'Tighter spacing in note lists'},
+                {k:'sidebarMini',l:'Sidebar Mini by Default',s:'Start with collapsed sidebar'},
+                {k:'monoBody',l:'Monospace Body Text',s:'Use JetBrains Mono for note content'},
+              ].map(p=>(
+                <div key={p.k} className="setrow">
+                  <div><div style={{fontSize:13,fontWeight:500}}>{p.l}</div><div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>{p.s}</div></div>
+                  <Toggle on={display[p.k]} onToggle={()=>setDisplay(pr=>({...pr,[p.k]:!pr[p.k]}))}/>
+                </div>
+              ))}
+            </>}
+            {settingTab==='billing'&&<>
+              <div style={{fontSize:14,fontWeight:600,marginBottom:4}}>Billing & Plan</div>
+              <div style={{background:'var(--accent-dim)',border:'1px solid rgba(201,168,76,.25)',borderRadius:8,padding:14,marginBottom:8}}>
+                <div style={{fontSize:11,fontFamily:'JetBrains Mono,monospace',textTransform:'uppercase',letterSpacing:1,color:'var(--accent)',marginBottom:6}}>Current Plan</div>
+                <div style={{fontSize:20,fontWeight:700,fontFamily:"'Playfair Display',serif"}}>Pro Plan</div>
+                <div style={{fontSize:12,color:'var(--muted)',marginTop:3}}>$12 / month · Renews March 13, 2025</div>
+              </div>
+              {[['Student','Free','Unlimited notes · 10 AI actions/day'],['Pro','$12/mo','Unlimited AI · Audio transcription · Priority support'],['Law School','Contact us','Enterprise SSO · Multi-user · LMS admin']].map(([plan,price,desc])=>(
+                <div key={plan} className="setrow">
+                  <div><div style={{fontSize:13,fontWeight:600}}>{plan} — {price}</div><div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>{desc}</div></div>
+                  <button className="btn btn-ghost btn-sm" onClick={()=>onToast(`Switching to ${plan}…`)}>{plan==='Pro'?'Current':'Upgrade'}</button>
+                </div>
+              ))}
+            </>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════ API MAP VIEW ══════════════════ */
+function APIView(){
+  return(
+    <div className="view active afu" style={{flexDirection:'column'}}>
+      <div className="apiwrap">
+        <div style={{marginBottom:20}}>
+          <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,marginBottom:4}}>API Architecture Map</div>
+          <div style={{fontSize:12.5,color:'var(--muted)',marginBottom:14}}>All third-party services and internal endpoints required to build LexNotes — mapped for your dev team.</div>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+            {[{cat:'core',l:'Core API'},{cat:'ai',l:'AI Services'},{cat:'sync',l:'Sync / LMS'},{cat:'db',l:'Storage / DB'}].map(b=>(
+              <span key={b.cat} className={`apibadge ${b.cat}`} style={{cursor:'default',padding:'4px 10px',fontSize:10}}>{b.l}</span>
+            ))}
+            <span style={{fontSize:11,color:'var(--muted)',marginLeft:8,alignSelf:'center'}}>9 services · ~32 endpoints</span>
+          </div>
+        </div>
+        <div className="apigrid">
+          {API_DATA.map(api=>(
+            <div key={api.name} className="apicard">
+              <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:10,marginBottom:8}}>
+                <div>
+                  <span className={`apibadge ${api.cat}`}>{api.label}</span>
+                  <div className="apiname">{api.name}</div>
+                </div>
+              </div>
+              <div className="apipurpose">{api.purpose}</div>
+              <div className="apisep"/>
+              <div className="apiowner" style={{marginBottom:8}}>Provider: {api.owner}</div>
+              <div className="apieps">
+                {api.eps.map((ep,i)=>(
+                  <div key={i} className="ep">
+                    <span className={`meth ${ep.m}`}>{ep.m.toUpperCase()}</span>
+                    <span className="epath">{ep.p}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Architecture diagram legend */}
+        <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:10,padding:18,marginTop:20}}>
+          <div style={{fontSize:11,fontWeight:700,marginBottom:10,fontFamily:'JetBrains Mono,monospace',textTransform:'uppercase',letterSpacing:1,color:'var(--accent)'}}>Architecture Overview</div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))',gap:12,fontSize:12,color:'var(--muted)',lineHeight:1.7}}>
+            <div><strong style={{color:'var(--text)'}}>Frontend</strong><br/>React SPA — hosted on Vercel / Netlify<br/>Single-file build for v1 demo</div>
+            <div><strong style={{color:'var(--text)'}}>Backend API</strong><br/>Node.js + Express on Railway / Fly.io<br/>REST + WebSocket for realtime sync</div>
+            <div><strong style={{color:'var(--text)'}}>Database</strong><br/>Supabase (PostgreSQL) for all user data<br/>Realtime subscriptions for live collab</div>
+            <div><strong style={{color:'var(--text)'}}>File Storage</strong><br/>Cloudflare R2 (S3-compatible)<br/>Audio recordings, PDFs, exports</div>
+            <div><strong style={{color:'var(--text)'}}>AI Pipeline</strong><br/>Claude (outlines, insights) + Whisper (audio)<br/>PDF.js + LlamaIndex for textbook parsing</div>
+            <div><strong style={{color:'var(--text)'}}>Auth</strong><br/>Supabase Auth (JWT + OAuth)<br/>Google OAuth for calendar + Gmail sync</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════ APP ROOT ═══════════════════ */
+function App(){
+  const [view,setView]=useState('dashboard');
+  const [notes,setNotes]=useState(INIT_NOTES);
+  const [docs,setDocs]=useState(INIT_DOCS);
+  const [sidebarMini,setSidebarMini]=useState(false);
+  const [toasts,showToast]=useToast();
+
+  function handleNew(){
+    if(view==='notes')showToast('Creating new note…');
+    else if(view==='textbooks')showToast('Upload a PDF or ePub to add a textbook');
+    else if(view==='calendar')showToast('Add event modal opening…');
+    else showToast('Coming in v1.1!');
+  }
+
+  return(
+    <div className="app">
+      <Sidebar view={view} onNav={setView} mini={sidebarMini} setMini={setSidebarMini}/>
+      <div className="main">
+        <Topbar view={view} onNew={handleNew} onToast={showToast}/>
+        <div className="content">
+          {view==='dashboard'    && <Dashboard notes={notes} onToast={showToast} onNav={setView}/>}
+          {view==='notes'        && <NotesView notes={notes} setNotes={setNotes} onToast={showToast}/>}
+          {view==='outline'      && <OutlineView onToast={showToast}/>}
+          {view==='practice'     && <PracticeView onToast={showToast}/>}
+          {view==='calendar'     && <CalendarView onToast={showToast}/>}
+          {view==='docs'         && <DocsView docs={docs} setDocs={setDocs} onToast={showToast}/>}
+          {view==='textbooks'    && <TextbooksView onToast={showToast}/>}
+          {view==='integrations' && <IntegrationsView onToast={showToast}/>}
+          {view==='settings'     && <SettingsView onToast={showToast}/>}
+          {view==='apis'         && <APIView/>}
+        </div>
+      </div>
+      <Toasts items={toasts}/>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
