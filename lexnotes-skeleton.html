@@ -1112,32 +1112,32 @@ function NotesView({notes,setNotes,onToast,user}){
           <input className="inp" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search notes…" style={{fontSize:11.5}}/>
         </div>
         <div style={{flex:1,overflowY:'auto'}}>
-          {allCourses.map(course=>(
-            <div key={course.id}>
-              {(() => { const topics=[...(course.topics||[]),...(extraTopics[course.id]||[])];
-                return (
-              <div className={`cgroup-hd${activeCourse===course.id?' on':''}`}
-                onClick={()=>{setActiveCourse(course.id);setOpenCourses(p=>({...p,[course.id]:!p[course.id]}));}}>
-                <div style={{display:'flex',alignItems:'center',gap:7}}>
-                  <div className="cdot" style={{background:course.color}}/>
-                  <span style={{fontSize:12,fontWeight:500}}>{course.label}</span>
+          {allCourses.map(course=>{
+            const topics=[...(course.topics||[]),...(extraTopics[course.id]||[])];
+            return(
+              <div key={course.id}>
+                <div className={`cgroup-hd${activeCourse===course.id?' on':''}`}
+                  onClick={()=>{setActiveCourse(course.id);setOpenCourses(p=>({...p,[course.id]:!p[course.id]}));}}>
+                  <div style={{display:'flex',alignItems:'center',gap:7}}>
+                    <div className="cdot" style={{background:course.color}}/>
+                    <span style={{fontSize:12,fontWeight:500}}>{course.label}</span>
+                  </div>
+                  <div style={{display:'flex',alignItems:'center',gap:5}}>
+                    <span style={{fontSize:9,fontFamily:'JetBrains Mono,monospace',color:'var(--dim)',background:'var(--surface3)',padding:'1px 5px',borderRadius:99}}>{notes.filter(n=>n.course===course.id).length}</span>
+                    <span style={{fontSize:8,color:'var(--dim)'}}>{openCourses[course.id]?'▾':'▸'}</span>
+                  </div>
                 </div>
-                <div style={{display:'flex',alignItems:'center',gap:5}}>
-                  <span style={{fontSize:9,fontFamily:'JetBrains Mono,monospace',color:'var(--dim)',background:'var(--surface3)',padding:'1px 5px',borderRadius:99}}>{notes.filter(n=>n.course===course.id).length}</span>
-                  <span style={{fontSize:8,color:'var(--dim)'}}>{openCourses[course.id]?'▾':'▸'}</span>
-                </div>
+                {openCourses[course.id]&&topics.map(t=>(
+                  <div key={t.id} className={`topic-row${activeCourse===course.id&&activeTopic===t.id?' on':''}`}
+                    onClick={()=>{setActiveCourse(course.id);setActiveTopic(t.id);setTypeFilter('all');}}>
+                    <span style={{fontSize:8,marginRight:5,opacity:.4}}>⬡</span>{t.label}
+                    <span style={{marginLeft:'auto',fontSize:9,fontFamily:'JetBrains Mono,monospace',color:'var(--dim)'}}>{notes.filter(n=>n.course===course.id&&n.topic===t.id).length||t.n}</span>
+                  </div>
+                ))}
+                {openCourses[course.id]&&<div style={{padding:'4px 13px 4px 26px',fontSize:11,color:'var(--dim)',cursor:'pointer'}} onClick={()=>addTopic(course.id)}>+ Add Topic</div>}
               </div>
-              {openCourses[course.id]&&topics.map(t=>(
-                <div key={t.id} className={`topic-row${activeCourse===course.id&&activeTopic===t.id?' on':''}`}
-                  onClick={()=>{setActiveCourse(course.id);setActiveTopic(t.id);setTypeFilter('all');}}>
-                  <span style={{fontSize:8,marginRight:5,opacity:.4}}>⬡</span>{t.label}
-                  <span style={{marginLeft:'auto',fontSize:9,fontFamily:'JetBrains Mono,monospace',color:'var(--dim)'}}>{notes.filter(n=>n.course===course.id&&n.topic===t.id).length||t.n}</span>
-                </div>
-              ))}
-              {openCourses[course.id]&&<div style={{padding:'4px 13px 4px 26px',fontSize:11,color:'var(--dim)',cursor:'pointer'}} onClick={()=>addTopic(course.id)}>+ Add Topic</div>}
-              )})()}
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
