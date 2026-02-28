@@ -873,7 +873,7 @@ function NotesView({notes,setNotes,onToast}){
   }
 
   return(
-    <div className="view active notes-layout">
+    <div className="view active notes-layout" style={{flexDirection:'row'}}>
       {/* ── Course Nav ── */}
       <div className="course-panel" style={{width:navCol?0:'206px',borderRight:navCol?'none':'',overflow:navCol?'visible':'hidden'}}>
         <PanelCollapseBtn collapsed={navCol} onToggle={()=>setNavCol(v=>!v)}/>
@@ -1330,7 +1330,7 @@ function DocsView({docs,setDocs,onToast}){
   }
 
   return(
-    <div className="view active docs-layout afu">
+    <div className="view active docs-layout afu" style={{flexDirection:'row'}}>
       <div className="course-panel" style={{width:panCol?0:'206px',borderRight:panCol?'none':''}}>
         <PanelCollapseBtn collapsed={panCol} onToggle={()=>setPanCol(v=>!v)}/>
         <div className="phead">
@@ -1487,7 +1487,7 @@ function TextbooksView({onToast}){
   }
 
   return(
-    <div className="view active tbview afu">
+    <div className="view active tbview afu" style={{flexDirection:'row'}}>
       {/* Library */}
       <div className="tblib" style={{width:libCol?0:'212px',borderRight:libCol?'none':''}}>
         <PanelCollapseBtn collapsed={libCol} onToggle={()=>setLibCol(v=>!v)}/>
