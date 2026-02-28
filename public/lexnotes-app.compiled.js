@@ -875,11 +875,357 @@ function Dashboard({
     out.sort((a, b) => a.w.localeCompare(b.w));
     setUpcoming(out.slice(0, 5));
   }, [CAL_KEY]);
-  const isOn = id => widgets.find(w => w.id === id)?.on;
+  const [dragIdx, setDragIdx] = useState(null);
+  const [overIdx, setOverIdx] = useState(null);
   const toggleWidget = id => setWidgets(p => p.map(w => w.id === id ? {
     ...w,
     on: !w.on
   } : w));
+  const moveWidget = (from, to) => {
+    if (from === to || from < 0 || to < 0) return;
+    setWidgets(p => {
+      if (to >= p.length) return p;
+      const next = [...p];
+      const [item] = next.splice(from, 1);
+      next.splice(to, 0, item);
+      return next;
+    });
+  };
+  const cardById = {
+    upcoming: React.createElement("div", {
+      className: "wcard"
+    }, React.createElement("div", {
+      className: "whead"
+    }, React.createElement("span", {
+      className: "wtitle"
+    }, "Upcoming"), React.createElement("button", {
+      className: "btn btn-ghost btn-sm",
+      onClick: () => onNav('calendar')
+    }, "Calendar \u2192")), React.createElement("div", {
+      className: "wbody"
+    }, upcoming.length === 0 ? React.createElement("div", {
+      style: {
+        fontSize: 11.5,
+        color: 'var(--muted)'
+      }
+    }, "No events yet. Connect Calendar apps or add events.") : upcoming.map((u, i) => React.createElement("div", {
+      key: i,
+      className: "wrow"
+    }, React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8
+      }
+    }, React.createElement("div", {
+      style: {
+        width: 3,
+        height: 32,
+        borderRadius: 2,
+        background: u.c,
+        flexShrink: 0
+      }
+    }), React.createElement("div", null, React.createElement("div", {
+      style: {
+        fontSize: 12,
+        fontWeight: 500
+      }
+    }, u.l), React.createElement("div", {
+      style: {
+        fontSize: 10,
+        color: 'var(--dim)',
+        fontFamily: 'JetBrains Mono,monospace'
+      }
+    }, u.w))))))),
+    recent: React.createElement("div", {
+      className: "wcard"
+    }, React.createElement("div", {
+      className: "whead"
+    }, React.createElement("span", {
+      className: "wtitle"
+    }, "Recent Notes"), React.createElement("button", {
+      className: "btn btn-ghost btn-sm",
+      onClick: () => onNav('notes')
+    }, "All \u2192")), React.createElement("div", {
+      className: "wbody"
+    }, notes.length === 0 ? React.createElement("div", {
+      style: {
+        fontSize: 11.5,
+        color: 'var(--muted)'
+      }
+    }, "No notes yet.") : notes.slice(0, 5).map(n => {
+      const c = COURSES.find(c => c.id === n.course);
+      return React.createElement("div", {
+        key: n.id,
+        className: "wrow",
+        style: {
+          cursor: 'pointer'
+        },
+        onClick: () => onNav('notes')
+      }, React.createElement("div", {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          gap: 7,
+          flex: 1,
+          minWidth: 0
+        }
+      }, React.createElement("div", {
+        style: {
+          width: 6,
+          height: 6,
+          borderRadius: '50%',
+          background: c?.color,
+          flexShrink: 0
+        }
+      }), React.createElement("span", {
+        style: {
+          fontSize: 12,
+          fontWeight: 500,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap'
+        }
+      }, n.title)), React.createElement("span", {
+        style: {
+          fontSize: 9,
+          background: 'var(--surface2)',
+          padding: '1px 5px',
+          borderRadius: 3,
+          color: 'var(--dim)',
+          flexShrink: 0
+        }
+      }, n.type));
+    }))),
+    insights: React.createElement("div", {
+      className: "wcard"
+    }, React.createElement("div", {
+      className: "whead"
+    }, React.createElement("span", {
+      className: "wtitle"
+    }, "AI Insights"), React.createElement("div", {
+      className: "aidot"
+    })), React.createElement("div", {
+      className: "wbody"
+    }, React.createElement("div", {
+      style: {
+        fontSize: 11.5,
+        color: 'var(--muted)',
+        lineHeight: 1.6,
+        marginBottom: 10
+      }
+    }, "You've covered negligence duty extensively but haven't reviewed ", React.createElement("strong", {
+      style: {
+        color: 'var(--text)'
+      }
+    }, "proximate cause"), " recently."), React.createElement("div", {
+      style: {
+        fontSize: 11.5,
+        color: 'var(--muted)',
+        lineHeight: 1.6,
+        marginBottom: 10
+      }
+    }, "Contracts gap: ", React.createElement("strong", {
+      style: {
+        color: 'var(--accent)'
+      }
+    }, "promissory estoppel"), " \u2014 3 cases assigned, 0 briefed."), React.createElement("button", {
+      className: "btn btn-ghost btn-sm",
+      style: {
+        width: '100%',
+        marginTop: 4
+      },
+      onClick: () => onToast('Generating personalized study plan…')
+    }, "\u26A1 Generate Study Plan"))),
+    practice: React.createElement("div", {
+      className: "wcard"
+    }, React.createElement("div", {
+      className: "whead"
+    }, React.createElement("span", {
+      className: "wtitle"
+    }, "Practice Stats"), React.createElement("button", {
+      className: "btn btn-ghost btn-sm",
+      onClick: () => onNav('practice')
+    }, "Practice \u2192")), React.createElement("div", {
+      className: "wbody"
+    }, COURSES.length === 0 ? React.createElement("div", {
+      style: {
+        fontSize: 11.5,
+        color: 'var(--muted)'
+      }
+    }, "Add a course to see stats.") : COURSES.map((c, i) => {
+      const pct = [72, 68, 81, 74, 65][i];
+      return React.createElement("div", {
+        key: c.id,
+        className: "wrow"
+      }, React.createElement("div", {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          gap: 7
+        }
+      }, React.createElement("div", {
+        style: {
+          width: 6,
+          height: 6,
+          borderRadius: '50%',
+          background: c.color
+        }
+      }), React.createElement("span", {
+        style: {
+          fontSize: 11.5
+        }
+      }, c.label)), React.createElement("div", {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          gap: 7
+        }
+      }, React.createElement("div", {
+        style: {
+          width: 55,
+          height: 3,
+          borderRadius: 99,
+          background: 'var(--border)',
+          overflow: 'hidden'
+        }
+      }, React.createElement("div", {
+        style: {
+          width: `${pct}%`,
+          height: '100%',
+          background: c.color,
+          borderRadius: 99
+        }
+      })), React.createElement("span", {
+        style: {
+          fontSize: 10,
+          fontFamily: 'JetBrains Mono,monospace',
+          color: 'var(--muted)',
+          width: 26,
+          textAlign: 'right'
+        }
+      }, pct, "%")));
+    }))),
+    outline: React.createElement("div", {
+      className: "wcard span2"
+    }, React.createElement("div", {
+      className: "whead"
+    }, React.createElement("span", {
+      className: "wtitle"
+    }, "Outline Preview \u2014 Contracts"), React.createElement("button", {
+      className: "btn btn-ghost btn-sm",
+      onClick: () => onNav('outline')
+    }, "Full Outline \u2192")), React.createElement("div", {
+      className: "wbody",
+      style: {
+        fontFamily: 'JetBrains Mono,monospace',
+        fontSize: 11,
+        lineHeight: 1.85,
+        color: 'var(--muted)',
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        columnGap: 24
+      }
+    }, React.createElement("div", null, React.createElement("span", {
+      style: {
+        color: 'var(--text)',
+        fontWeight: 600
+      }
+    }, "I. Formation"), React.createElement("br", null), "\xA0\xA0A. Offer \u2014 definite terms, intent", React.createElement("br", null), "\xA0\xA0B. Acceptance \u2014 mirror image / UCC \xA72-207", React.createElement("br", null), "\xA0\xA0C. Consideration \u2014 bargained-for exchange", React.createElement("br", null), React.createElement("span", {
+      style: {
+        color: 'var(--text)',
+        fontWeight: 600
+      }
+    }, "II. Defenses"), React.createElement("br", null), "\xA0\xA0A. Fraud, Duress, Undue Influence", React.createElement("br", null), "\xA0\xA0B. Mistake \u2014 mutual vs. unilateral"), React.createElement("div", null, React.createElement("span", {
+      style: {
+        color: 'var(--text)',
+        fontWeight: 600
+      }
+    }, "III. Breach & Remedies"), React.createElement("br", null), "\xA0\xA0A. Material vs. Minor Breach", React.createElement("br", null), "\xA0\xA0B. Expectation Damages", React.createElement("br", null), "\xA0\xA0C. Consequential \u2014 ", React.createElement("span", {
+      style: {
+        color: 'var(--accent)',
+        fontStyle: 'italic'
+      }
+    }, "Hadley v. Baxendale"), React.createElement("br", null), "\xA0\xA0D. Reliance & Restitution", React.createElement("br", null), React.createElement("span", {
+      style: {
+        color: 'var(--text)',
+        fontWeight: 600
+      }
+    }, "IV. Impossibility / Frustration")))),
+    inbox: React.createElement("div", {
+      className: "wcard"
+    }, React.createElement("div", {
+      className: "whead"
+    }, React.createElement("span", {
+      className: "wtitle"
+    }, "Inbox"), React.createElement("button", {
+      className: "btn btn-ghost btn-sm",
+      onClick: () => onToast('Compose email')
+    }, "Compose")), React.createElement("div", {
+      className: "wbody"
+    }, [{
+      from: 'Prof. Chen',
+      sub: 'Re: Tuesday Office Hours',
+      t: '9:14am',
+      unread: true
+    }, {
+      from: 'Canvas LMS',
+      sub: 'Contracts: Assignment 3 Posted',
+      t: '8:02am',
+      unread: true
+    }, {
+      from: 'Study Group',
+      sub: 'Torts outline — can we meet?',
+      t: 'Yesterday',
+      unread: false
+    }].map((m, i) => React.createElement("div", {
+      key: i,
+      className: "wrow",
+      style: {
+        cursor: 'pointer',
+        gap: 8
+      },
+      onClick: () => onToast(`Opening: ${m.sub}`)
+    }, React.createElement("div", {
+      style: {
+        width: 5,
+        height: 5,
+        borderRadius: '50%',
+        background: m.unread ? 'var(--accent)' : 'transparent',
+        border: m.unread ? 'none' : '1px solid var(--border)',
+        flexShrink: 0,
+        marginTop: 2
+      }
+    }), React.createElement("div", {
+      style: {
+        flex: 1,
+        minWidth: 0
+      }
+    }, React.createElement("div", {
+      style: {
+        fontSize: 11.5,
+        fontWeight: m.unread ? 600 : 400,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap'
+      }
+    }, m.from), React.createElement("div", {
+      style: {
+        fontSize: 10.5,
+        color: 'var(--muted)',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap'
+      }
+    }, m.sub)), React.createElement("span", {
+      style: {
+        fontSize: 9.5,
+        color: 'var(--dim)',
+        fontFamily: 'JetBrains Mono,monospace',
+        flexShrink: 0
+      }
+    }, m.t)))))
+  };
   return React.createElement("div", {
     className: "view active afu",
     style: {
@@ -917,334 +1263,9 @@ function Dashboard({
     className: "stat-meta"
   }, s)))), React.createElement("div", {
     className: "wgrid"
-  }, isOn('upcoming') && React.createElement("div", {
-    className: "wcard"
-  }, React.createElement("div", {
-    className: "whead"
-  }, React.createElement("span", {
-    className: "wtitle"
-  }, "Upcoming"), React.createElement("button", {
-    className: "btn btn-ghost btn-sm",
-    onClick: () => onNav('calendar')
-  }, "Calendar \u2192")), React.createElement("div", {
-    className: "wbody"
-  }, upcoming.length === 0 ? React.createElement("div", {
-    style: {
-      fontSize: 11.5,
-      color: 'var(--muted)'
-    }
-  }, "No events yet. Connect Calendar apps or add events.") : upcoming.map((u, i) => React.createElement("div", {
-    key: i,
-    className: "wrow"
-  }, React.createElement("div", {
-    style: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: 8
-    }
-  }, React.createElement("div", {
-    style: {
-      width: 3,
-      height: 32,
-      borderRadius: 2,
-      background: u.c,
-      flexShrink: 0
-    }
-  }), React.createElement("div", null, React.createElement("div", {
-    style: {
-      fontSize: 12,
-      fontWeight: 500
-    }
-  }, u.l), React.createElement("div", {
-    style: {
-      fontSize: 10,
-      color: 'var(--dim)',
-      fontFamily: 'JetBrains Mono,monospace'
-    }
-  }, u.w))))))), isOn('recent') && React.createElement("div", {
-    className: "wcard"
-  }, React.createElement("div", {
-    className: "whead"
-  }, React.createElement("span", {
-    className: "wtitle"
-  }, "Recent Notes"), React.createElement("button", {
-    className: "btn btn-ghost btn-sm",
-    onClick: () => onNav('notes')
-  }, "All \u2192")), React.createElement("div", {
-    className: "wbody"
-  }, notes.length === 0 ? React.createElement("div", {
-    style: {
-      fontSize: 11.5,
-      color: 'var(--muted)'
-    }
-  }, "No notes yet.") : notes.slice(0, 5).map(n => {
-    const c = COURSES.find(c => c.id === n.course);
-    return React.createElement("div", {
-      key: n.id,
-      className: "wrow",
-      style: {
-        cursor: 'pointer'
-      },
-      onClick: () => onNav('notes')
-    }, React.createElement("div", {
-      style: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 7,
-        flex: 1,
-        minWidth: 0
-      }
-    }, React.createElement("div", {
-      style: {
-        width: 6,
-        height: 6,
-        borderRadius: '50%',
-        background: c?.color,
-        flexShrink: 0
-      }
-    }), React.createElement("span", {
-      style: {
-        fontSize: 12,
-        fontWeight: 500,
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap'
-      }
-    }, n.title)), React.createElement("span", {
-      style: {
-        fontSize: 9,
-        background: 'var(--surface2)',
-        padding: '1px 5px',
-        borderRadius: 3,
-        color: 'var(--dim)',
-        flexShrink: 0
-      }
-    }, n.type));
-  }))), isOn('insights') && React.createElement("div", {
-    className: "wcard"
-  }, React.createElement("div", {
-    className: "whead"
-  }, React.createElement("span", {
-    className: "wtitle"
-  }, "AI Insights"), React.createElement("div", {
-    className: "aidot"
-  })), React.createElement("div", {
-    className: "wbody"
-  }, React.createElement("div", {
-    style: {
-      fontSize: 11.5,
-      color: 'var(--muted)',
-      lineHeight: 1.6,
-      marginBottom: 10
-    }
-  }, "You've covered negligence duty extensively but haven't reviewed ", React.createElement("strong", {
-    style: {
-      color: 'var(--text)'
-    }
-  }, "proximate cause"), " recently."), React.createElement("div", {
-    style: {
-      fontSize: 11.5,
-      color: 'var(--muted)',
-      lineHeight: 1.6,
-      marginBottom: 10
-    }
-  }, "Contracts gap: ", React.createElement("strong", {
-    style: {
-      color: 'var(--accent)'
-    }
-  }, "promissory estoppel"), " \u2014 3 cases assigned, 0 briefed."), React.createElement("button", {
-    className: "btn btn-ghost btn-sm",
-    style: {
-      width: '100%',
-      marginTop: 4
-    },
-    onClick: () => onToast('Generating personalized study plan…')
-  }, "\u26A1 Generate Study Plan"))), isOn('practice') && React.createElement("div", {
-    className: "wcard"
-  }, React.createElement("div", {
-    className: "whead"
-  }, React.createElement("span", {
-    className: "wtitle"
-  }, "Practice Stats"), React.createElement("button", {
-    className: "btn btn-ghost btn-sm",
-    onClick: () => onNav('practice')
-  }, "Practice \u2192")), React.createElement("div", {
-    className: "wbody"
-  }, COURSES.length === 0 ? React.createElement("div", {
-    style: {
-      fontSize: 11.5,
-      color: 'var(--muted)'
-    }
-  }, "Add a course to see stats.") : COURSES.map((c, i) => {
-    const pct = [72, 68, 81, 74, 65][i];
-    return React.createElement("div", {
-      key: c.id,
-      className: "wrow"
-    }, React.createElement("div", {
-      style: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 7
-      }
-    }, React.createElement("div", {
-      style: {
-        width: 6,
-        height: 6,
-        borderRadius: '50%',
-        background: c.color
-      }
-    }), React.createElement("span", {
-      style: {
-        fontSize: 11.5
-      }
-    }, c.label)), React.createElement("div", {
-      style: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 7
-      }
-    }, React.createElement("div", {
-      style: {
-        width: 55,
-        height: 3,
-        borderRadius: 99,
-        background: 'var(--border)',
-        overflow: 'hidden'
-      }
-    }, React.createElement("div", {
-      style: {
-        width: `${pct}%`,
-        height: '100%',
-        background: c.color,
-        borderRadius: 99
-      }
-    })), React.createElement("span", {
-      style: {
-        fontSize: 10,
-        fontFamily: 'JetBrains Mono,monospace',
-        color: 'var(--muted)',
-        width: 26,
-        textAlign: 'right'
-      }
-    }, pct, "%")));
-  }))), isOn('outline') && React.createElement("div", {
-    className: "wcard span2"
-  }, React.createElement("div", {
-    className: "whead"
-  }, React.createElement("span", {
-    className: "wtitle"
-  }, "Outline Preview \u2014 Contracts"), React.createElement("button", {
-    className: "btn btn-ghost btn-sm",
-    onClick: () => onNav('outline')
-  }, "Full Outline \u2192")), React.createElement("div", {
-    className: "wbody",
-    style: {
-      fontFamily: 'JetBrains Mono,monospace',
-      fontSize: 11,
-      lineHeight: 1.85,
-      color: 'var(--muted)',
-      display: 'grid',
-      gridTemplateColumns: '1fr 1fr',
-      columnGap: 24
-    }
-  }, React.createElement("div", null, React.createElement("span", {
-    style: {
-      color: 'var(--text)',
-      fontWeight: 600
-    }
-  }, "I. Formation"), React.createElement("br", null), "\xA0\xA0A. Offer \u2014 definite terms, intent", React.createElement("br", null), "\xA0\xA0B. Acceptance \u2014 mirror image / UCC \xA72-207", React.createElement("br", null), "\xA0\xA0C. Consideration \u2014 bargained-for exchange", React.createElement("br", null), React.createElement("span", {
-    style: {
-      color: 'var(--text)',
-      fontWeight: 600
-    }
-  }, "II. Defenses"), React.createElement("br", null), "\xA0\xA0A. Fraud, Duress, Undue Influence", React.createElement("br", null), "\xA0\xA0B. Mistake \u2014 mutual vs. unilateral"), React.createElement("div", null, React.createElement("span", {
-    style: {
-      color: 'var(--text)',
-      fontWeight: 600
-    }
-  }, "III. Breach & Remedies"), React.createElement("br", null), "\xA0\xA0A. Material vs. Minor Breach", React.createElement("br", null), "\xA0\xA0B. Expectation Damages", React.createElement("br", null), "\xA0\xA0C. Consequential \u2014 ", React.createElement("span", {
-    style: {
-      color: 'var(--accent)',
-      fontStyle: 'italic'
-    }
-  }, "Hadley v. Baxendale"), React.createElement("br", null), "\xA0\xA0D. Reliance & Restitution", React.createElement("br", null), React.createElement("span", {
-    style: {
-      color: 'var(--text)',
-      fontWeight: 600
-    }
-  }, "IV. Impossibility / Frustration")))), isOn('inbox') && React.createElement("div", {
-    className: "wcard"
-  }, React.createElement("div", {
-    className: "whead"
-  }, React.createElement("span", {
-    className: "wtitle"
-  }, "Inbox"), React.createElement("button", {
-    className: "btn btn-ghost btn-sm",
-    onClick: () => onToast('Compose email')
-  }, "Compose")), React.createElement("div", {
-    className: "wbody"
-  }, [{
-    from: 'Prof. Chen',
-    sub: 'Re: Tuesday Office Hours',
-    t: '9:14am',
-    unread: true
-  }, {
-    from: 'Canvas LMS',
-    sub: 'Contracts: Assignment 3 Posted',
-    t: '8:02am',
-    unread: true
-  }, {
-    from: 'Study Group',
-    sub: 'Torts outline — can we meet?',
-    t: 'Yesterday',
-    unread: false
-  }].map((m, i) => React.createElement("div", {
-    key: i,
-    className: "wrow",
-    style: {
-      cursor: 'pointer',
-      gap: 8
-    },
-    onClick: () => onToast(`Opening: ${m.sub}`)
-  }, React.createElement("div", {
-    style: {
-      width: 5,
-      height: 5,
-      borderRadius: '50%',
-      background: m.unread ? 'var(--accent)' : 'transparent',
-      border: m.unread ? 'none' : '1px solid var(--border)',
-      flexShrink: 0,
-      marginTop: 2
-    }
-  }), React.createElement("div", {
-    style: {
-      flex: 1,
-      minWidth: 0
-    }
-  }, React.createElement("div", {
-    style: {
-      fontSize: 11.5,
-      fontWeight: m.unread ? 600 : 400,
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
-      whiteSpace: 'nowrap'
-    }
-  }, m.from), React.createElement("div", {
-    style: {
-      fontSize: 10.5,
-      color: 'var(--muted)',
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
-      whiteSpace: 'nowrap'
-    }
-  }, m.sub)), React.createElement("span", {
-    style: {
-      fontSize: 9.5,
-      color: 'var(--dim)',
-      fontFamily: 'JetBrains Mono,monospace',
-      flexShrink: 0
-    }
-  }, m.t))))))), React.createElement(Modal, {
+  }, widgets.filter(w => w.on).map(w => React.createElement(React.Fragment, {
+    key: w.id
+  }, cardById[w.id] || null)))), React.createElement(Modal, {
     open: showCustomize,
     onClose: () => setShowCustomize(false),
     title: "Customize Dashboard",
@@ -1252,20 +1273,43 @@ function Dashboard({
     size: "modal-sm"
   }, React.createElement("div", {
     className: "mbody"
-  }, widgets.map(w => React.createElement("div", {
+  }, widgets.map((w, idx) => React.createElement("div", {
     key: w.id,
-    className: "setrow",
+    className: `setrow drag${dragIdx === idx ? ' on' : ''}`,
     style: {
       padding: '8px 0'
+    },
+    onPointerDown: () => setDragIdx(idx),
+    onPointerEnter: () => dragIdx !== null && setOverIdx(idx),
+    onPointerUp: () => {
+      if (dragIdx !== null && overIdx !== null) moveWidget(dragIdx, overIdx);
+      setDragIdx(null);
+      setOverIdx(null);
+    },
+    onPointerCancel: () => {
+      setDragIdx(null);
+      setOverIdx(null);
     }
   }, React.createElement("div", {
     style: {
       fontSize: 12
     }
-  }, w.label), React.createElement(Toggle, {
+  }, w.label), React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8
+    }
+  }, React.createElement("button", {
+    className: "btn btn-ghost btn-sm",
+    onClick: () => moveWidget(idx, Math.max(0, idx - 1))
+  }, "\u2191"), React.createElement("button", {
+    className: "btn btn-ghost btn-sm",
+    onClick: () => moveWidget(idx, Math.min(widgets.length - 1, idx + 1))
+  }, "\u2193"), React.createElement(Toggle, {
     on: w.on,
     onToggle: () => toggleWidget(w.id)
-  }))), React.createElement("button", {
+  })))), React.createElement("button", {
     className: "btn btn-primary",
     style: {
       width: '100%',
@@ -1286,8 +1330,10 @@ function NotesView({
   const NOTES_META_KEY = `lexnotes:${user?.id || 'anon'}:notes-meta`;
   const [activeCourse, setActiveCourse] = useState('');
   const [activeTopic, setActiveTopic] = useState('');
+  const [activeSubsection, setActiveSubsection] = useState('');
   const [extraCourses, setExtraCourses] = useState([]);
   const [extraTopics, setExtraTopics] = useState({});
+  const [extraSubsections, setExtraSubsections] = useState({});
   const [activeId, setActiveId] = useState(null);
   const [openCourses, setOpenCourses] = useState({});
   const [navCol, setNavCol] = useState(false);
@@ -1307,6 +1353,8 @@ function NotesView({
   const [briefDraft, setBriefDraft] = useState(null);
   const audioRef = useRef();
   const recRef = useRef();
+  const richRef = useRef();
+  const richSaveRef = useRef();
   useEffect(() => {
     if (recording) {
       recRef.current = setInterval(() => setRecSecs(s => s + 1), 1000);
@@ -1318,11 +1366,15 @@ function NotesView({
   }, [recording]);
   const fmt = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
   const allCourses = [...COURSES, ...extraCourses];
+  const subsectionKey = (courseId, topicId) => `${courseId || 'none'}::${topicId || 'none'}`;
   const activeNote = notes.find(n => n.id === activeId);
   const courseObj = allCourses.find(c => c.id === activeCourse);
-  const topicObj = courseObj?.topics.find(t => t.id === activeTopic);
+  const selectedTopics = [...(courseObj?.topics || []), ...(extraTopics[activeCourse] || [])];
+  const topicObj = selectedTopics.find(t => t.id === activeTopic);
+  const currentSubsections = extraSubsections[subsectionKey(activeCourse, activeTopic)] || [];
   const filtered = notes.filter(n => {
     if (n.course !== activeCourse || n.topic !== activeTopic) return false;
+    if (activeSubsection && n.subsection !== activeSubsection) return false;
     if (typeFilter !== 'all' && n.type !== typeFilter) return false;
     if (search && !n.title.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
@@ -1366,14 +1418,16 @@ function NotesView({
     if (saved) {
       if (Array.isArray(saved.extraCourses)) setExtraCourses(saved.extraCourses);
       if (saved.extraTopics && typeof saved.extraTopics === 'object') setExtraTopics(saved.extraTopics);
+      if (saved.extraSubsections && typeof saved.extraSubsections === 'object') setExtraSubsections(saved.extraSubsections);
     }
   }, [NOTES_META_KEY]);
   useDebouncedEffect(() => {
     writeJSON(NOTES_META_KEY, {
       extraCourses,
-      extraTopics
+      extraTopics,
+      extraSubsections
     });
-  }, [extraCourses, extraTopics, NOTES_META_KEY], 260);
+  }, [extraCourses, extraTopics, extraSubsections, NOTES_META_KEY], 260);
   useEffect(() => {
     if (activeNote?.type === 'brief') {
       setBriefDraft({
@@ -1409,12 +1463,25 @@ function NotesView({
     if (activeTopic && !selectedTopics.some(t => t.id === activeTopic)) setActiveTopic(selectedTopics[0]?.id || '');
   }, [allCourses, activeCourse, activeTopic, extraTopics]);
   useEffect(() => {
+    const list = extraSubsections[subsectionKey(activeCourse, activeTopic)] || [];
+    if (activeSubsection && !list.some(s => s.id === activeSubsection)) setActiveSubsection('');
+  }, [activeCourse, activeTopic, extraSubsections, activeSubsection]);
+  useEffect(() => {
     if (notes.length === 0) {
       if (activeId !== null) setActiveId(null);
       return;
     }
     if (activeId === null || !notes.some(n => n.id === activeId)) setActiveId(notes[0].id);
   }, [notes, activeId]);
+  useEffect(() => {
+    if (activeNote && activeNote.subsection && activeNote.subsection !== activeSubsection) {
+      setActiveSubsection(activeNote.subsection);
+    }
+    if (activeNote?.type !== 'brief' && richRef.current) {
+      const html = activeNote?.contentHtml || esc(activeNote?.content || '').replace(/\n/g, '<br/>');
+      richRef.current.innerHTML = html || '<p><br/></p>';
+    }
+  }, [activeId]);
   function createNote() {
     if (!newTitle.trim()) {
       onToast('Enter a title');
@@ -1424,6 +1491,7 @@ function NotesView({
       id: nextId(),
       course: activeCourse,
       topic: activeTopic,
+      subsection: activeSubsection || '',
       type: newType,
       title: newTitle,
       preview: '',
@@ -1431,6 +1499,7 @@ function NotesView({
       hasAudio: false,
       hasMerge: false,
       content: '',
+      contentHtml: '',
       bf: {
         facts: '',
         issue: '',
@@ -1487,6 +1556,33 @@ function NotesView({
     setActiveTopic(id);
     onToast(`Topic "${label}" added`);
   }
+  function addSubsection() {
+    if (!activeCourse || !activeTopic) {
+      onToast('Pick a course and topic first');
+      return;
+    }
+    const name = (prompt('Subsection name (e.g., Week 2 or Defenses)') || '').trim();
+    if (!name) return;
+    const kind = (prompt('Subsection type: topic or week', 'topic') || 'topic').trim().toLowerCase() === 'week' ? 'week' : 'topic';
+    const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || `sub-${nextId()}`;
+    const key = subsectionKey(activeCourse, activeTopic);
+    const list = extraSubsections[key] || [];
+    if (list.some(s => s.id === id)) {
+      onToast('Subsection already exists');
+      return;
+    }
+    const row = {
+      id,
+      label: name,
+      kind
+    };
+    setExtraSubsections(p => ({
+      ...p,
+      [key]: [...list, row]
+    }));
+    setActiveSubsection(id);
+    onToast(`Subsection "${name}" added`);
+  }
   function exportNote() {
     if (!activeNote) {
       onToast('No note selected');
@@ -1495,6 +1591,28 @@ function NotesView({
     const body = activeNote.type === 'brief' ? `Facts:\n${activeNote.bf?.facts || ''}\n\nIssue:\n${activeNote.bf?.issue || ''}\n\nRule:\n${activeNote.bf?.rule || ''}\n\nReasoning:\n${activeNote.bf?.reasoning || ''}\n\nNotes:\n${activeNote.bf?.notes || ''}` : activeNote.content || '';
     downloadFile(`${(activeNote.title || 'note').replace(/[^\w\- ]+/g, '')}.txt`, `${activeNote.title}\n\n${body}`);
     onToast('Note exported');
+  }
+  function saveRichNow() {
+    if (!activeNote || activeNote.type === 'brief' || !richRef.current) return;
+    const html = richRef.current.innerHTML || '';
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    const text = tmp.innerText || '';
+    setNotes(p => p.map(n => n.id === activeId ? {
+      ...n,
+      contentHtml: html,
+      content: text
+    } : n));
+  }
+  function queueRichSave() {
+    clearTimeout(richSaveRef.current);
+    richSaveRef.current = setTimeout(saveRichNow, 180);
+  }
+  function noteCmd(name, val) {
+    try {
+      document.execCommand(name, false, val);
+    } catch {}
+    queueRichSave();
   }
   async function shareNote() {
     if (!activeNote) {
@@ -1518,6 +1636,7 @@ function NotesView({
       id: nextId(),
       course: activeCourse,
       topic: activeTopic || courseObj?.topics?.[0]?.id || 'general',
+      subsection: activeSubsection || '',
       type: 'auto',
       title,
       preview: 'Uploaded audio ready for transcription',
@@ -1525,6 +1644,7 @@ function NotesView({
       hasAudio: true,
       hasMerge: true,
       content,
+      contentHtml: '',
       bf: {
         facts: '',
         issue: '',
@@ -1589,6 +1709,7 @@ function NotesView({
       }
     } : n));
   }
+  useEffect(() => () => clearTimeout(richSaveRef.current), []);
   return React.createElement("div", {
     className: "view active notes-layout",
     style: {
@@ -1741,11 +1862,23 @@ function NotesView({
     onClick: () => setShowNew(true)
   }, "+")), React.createElement("div", {
     className: "nfilter"
-  }, ['all', 'brief', 'class', 'auto'].map(f => React.createElement("span", {
+  }, ['all', 'brief', 'class', 'auto', 'reading'].map(f => React.createElement("span", {
     key: f,
     className: `nfc${typeFilter === f ? ' on' : ''}`,
     onClick: () => setTypeFilter(f)
-  }, f === 'all' ? 'All' : f === 'brief' ? '📋' : f === 'class' ? '✎' : '🎙', " ", f === 'all' ? '' : '  ', f === 'brief' ? 'Brief' : f === 'class' ? 'Class' : f === 'auto' ? 'Auto' : ''))), React.createElement("div", {
+  }, f === 'all' ? 'All' : f === 'brief' ? '📋' : f === 'class' ? '✎' : f === 'auto' ? '🎙' : '📖', " ", f === 'all' ? '' : '  ', f === 'brief' ? 'Brief' : f === 'class' ? 'Class' : f === 'auto' ? 'Auto' : 'Reading'))), React.createElement("div", {
+    className: "subfilter"
+  }, React.createElement("span", {
+    className: `subchip${activeSubsection === '' ? ' on' : ''}`,
+    onClick: () => setActiveSubsection('')
+  }, "All Sections"), currentSubsections.map(s => React.createElement("span", {
+    key: s.id,
+    className: `subchip${activeSubsection === s.id ? ' on' : ''}`,
+    onClick: () => setActiveSubsection(s.id)
+  }, s.kind === 'week' ? 'Wk' : 'Tp', " \xB7 ", s.label)), React.createElement("span", {
+    className: "subchip",
+    onClick: addSubsection
+  }, "+ Section")), React.createElement("div", {
     style: {
       flex: 1,
       overflowY: 'auto',
@@ -1801,7 +1934,7 @@ function NotesView({
     className: "ntitle"
   }, n.title), React.createElement("div", {
     className: "npreview"
-  }, n.preview || n.content?.slice(0, 55)), React.createElement("div", {
+  }, n.preview || n.content?.slice(0, 55)), n.subsection && React.createElement("small", null, currentSubsections.find(s => s.id === n.subsection)?.label || n.subsection), React.createElement("div", {
     className: "ndate"
   }, n.date))))), React.createElement("div", {
     className: "editor"
@@ -1903,15 +2036,31 @@ function NotesView({
     })),
     onBlur: saveBriefDraft,
     placeholder: `Enter ${f.label.toLowerCase()}…`
-  }))) : React.createElement("textarea", {
-    className: "ebody",
-    defaultValue: activeNote.content || '',
-    placeholder: "Start writing\u2026",
-    onBlur: e => setNotes(p => p.map(n => n.id === activeId ? {
-      ...n,
-      content: e.target.value
-    } : n))
-  })) : React.createElement("div", {
+  }))) : React.createElement("div", null, React.createElement("div", {
+    className: "note-toolbar"
+  }, React.createElement("button", {
+    className: "btn btn-ghost btn-sm",
+    onClick: () => noteCmd('bold')
+  }, "B"), React.createElement("button", {
+    className: "btn btn-ghost btn-sm",
+    onClick: () => noteCmd('italic')
+  }, React.createElement("i", null, "I")), React.createElement("button", {
+    className: "btn btn-ghost btn-sm",
+    onClick: () => noteCmd('underline')
+  }, React.createElement("u", null, "U")), React.createElement("button", {
+    className: "btn btn-ghost btn-sm",
+    onClick: () => noteCmd('insertUnorderedList')
+  }, "\u2022 List"), React.createElement("button", {
+    className: "btn btn-ghost btn-sm",
+    onClick: () => noteCmd('insertOrderedList')
+  }, "1. List")), React.createElement("div", {
+    ref: richRef,
+    className: "ebody-rich",
+    contentEditable: true,
+    suppressContentEditableWarning: true,
+    onInput: queueRichSave,
+    onBlur: saveRichNow
+  }))) : React.createElement("div", {
     style: {
       textAlign: 'center',
       color: 'var(--muted)',
@@ -2346,6 +2495,13 @@ function OutlineView({
     const safe = esc(text).replace(/\n/g, '<br/>');
     cmd('insertHTML', `<p>${safe}</p>`);
   }
+  function insertLinkedCite(note) {
+    const cite = note.citation || note.title || 'Linked Note';
+    const snippet = (note.preview || note.content || '').slice(0, 180);
+    const safeCite = esc(cite);
+    const safeSnippet = esc(snippet);
+    cmd('insertHTML', `<p><em style="background:rgba(201,168,76,.24);padding:1px 4px;border-radius:4px">[${safeCite}]</em> ${safeSnippet}</p>`);
+  }
   function exportOutline(ext) {
     if (!courseId) {
       onToast('Select a course first');
@@ -2552,7 +2708,10 @@ function OutlineView({
   }, "+ Case"), React.createElement("button", {
     className: "btn btn-ghost btn-sm",
     onClick: () => insertAtCursor(`[Note] ${n.title}\n${(n.content || '').slice(0, 260)}`)
-  }, "+ Note"))))), React.createElement("div", {
+  }, "+ Note"), React.createElement("button", {
+    className: "btn btn-ghost btn-sm",
+    onClick: () => insertLinkedCite(n)
+  }, "+ Cite"))))), React.createElement("div", {
     style: {
       flex: 1,
       overflowY: 'auto',
@@ -2583,7 +2742,8 @@ function OutlineView({
 }
 function PracticeView({
   onToast,
-  user
+  user,
+  notes
 }) {
   const [qi, setQi] = useState(0);
   const [ans, setAns] = useState(null);
@@ -2592,9 +2752,44 @@ function PracticeView({
     c: 0,
     t: 0
   });
-  const q = PRACTICE_QS[qi];
+  const dynamicQs = useMemo(() => {
+    const source = (notes || []).filter(n => n.title || n.content || n.preview).slice(0, 80);
+    const byCourse = {};
+    source.forEach(n => {
+      const key = n.course || 'general';
+      if (!byCourse[key]) byCourse[key] = [];
+      byCourse[key].push(n);
+    });
+    const makeQ = (n, idx) => {
+      const text = (n.content || n.preview || '').replace(/\s+/g, ' ').trim();
+      const snippet = text.slice(0, 180) || `Key concept from "${n.title}"`;
+      return {
+        id: `n_${n.id}_${idx}`,
+        course: (n.course || 'General').replace(/-/g, ' ').replace(/\b\w/g, m => m.toUpperCase()),
+        topic: (n.topic || 'General').replace(/-/g, ' ').replace(/\b\w/g, m => m.toUpperCase()),
+        sub: n.subsection ? `Section: ${n.subsection.replace(/-/g, ' ')}` : 'From your notes',
+        text: `Based on your note "${n.title || 'Untitled'}", which statement is most consistent with your material?`,
+        opts: [snippet || 'No content available', 'This rule applies only when punitive damages are mandatory.', 'This concept is irrelevant to exams and should be ignored.', 'The note states that no legal analysis is needed.'],
+        correct: 0,
+        exp: `Pulled from your note content: ${snippet || 'No content captured yet.'}`
+      };
+    };
+    const out = [];
+    Object.values(byCourse).forEach(arr => arr.slice(0, 6).forEach((n, idx) => out.push(makeQ(n, idx))));
+    return out.length ? out : PRACTICE_QS;
+  }, [notes]);
+  const courses = ['All', ...Array.from(new Set(dynamicQs.map(q => q.course)))];
+  const activeQs = cFilter === 'All' ? dynamicQs : dynamicQs.filter(q => q.course === cFilter);
+  const q = activeQs[qi] || activeQs[0] || dynamicQs[0];
+  const qCount = activeQs.length || 1;
+  useEffect(() => {
+    if (qi >= qCount) {
+      setQi(0);
+      setAns(null);
+    }
+  }, [qi, qCount, cFilter]);
   function pick(i) {
-    if (ans !== null) return;
+    if (ans !== null || !q) return;
     setAns(i);
     setScore(s => ({
       c: s.c + (i === q.correct ? 1 : 0),
@@ -2603,9 +2798,10 @@ function PracticeView({
   }
   function next() {
     setAns(null);
-    setQi(p => (p + 1) % PRACTICE_QS.length);
+    setQi(p => (p + 1) % qCount);
   }
   function saveFlashCard() {
+    if (!q) return;
     const key = `lexnotes:${user?.id || 'anon'}:flashcards`;
     const cards = readJSON(key, []);
     const card = {
@@ -2631,7 +2827,7 @@ function PracticeView({
     className: "prgtitle"
   }, "Practice Questions"), React.createElement("div", {
     className: "prgsub"
-  }, "AI-generated from your notes \xB7 Question ", qi + 1, " of ", PRACTICE_QS.length)), React.createElement("div", {
+  }, "Generated from your classes and notes \xB7 Question ", Math.min(qi + 1, qCount), " of ", qCount)), React.createElement("div", {
     style: {
       textAlign: 'right'
     }
@@ -2642,12 +2838,12 @@ function PracticeView({
       fontFamily: 'JetBrains Mono,monospace',
       marginBottom: 4
     }
-  }, score.t > 0 ? `${Math.round(score.c / score.t * 100)}% avg · ` : '', qi + 1, "/", PRACTICE_QS.length), React.createElement("div", {
+  }, score.t > 0 ? `${Math.round(score.c / score.t * 100)}% avg · ` : '', Math.min(qi + 1, qCount), "/", qCount), React.createElement("div", {
     className: "prgbar"
   }, React.createElement("div", {
     className: "prgfill",
     style: {
-      width: `${(qi + 1) / PRACTICE_QS.length * 100}%`
+      width: `${Math.min(qi + 1, qCount) / qCount * 100}%`
     }
   })))), React.createElement("div", {
     style: {
@@ -2657,7 +2853,7 @@ function PracticeView({
       flexWrap: 'wrap',
       alignItems: 'center'
     }
-  }, ['All', 'Contracts', 'Torts', 'Crim Law', 'Mixed'].map(f => React.createElement("span", {
+  }, courses.map(f => React.createElement("span", {
     key: f,
     className: `chip${cFilter === f ? ' chip-gold' : ' chip-dim'}`,
     style: {
@@ -2672,7 +2868,7 @@ function PracticeView({
     }
   }, "Score: ", score.c, "/", score.t)), React.createElement("div", {
     className: "qcard afu",
-    key: qi
+    key: `${cFilter}-${qi}`
   }, React.createElement("div", {
     className: "qtopic"
   }, q.course, " \xB7 ", q.topic, " \xB7 ", q.sub), React.createElement("div", {
@@ -3221,6 +3417,28 @@ function DocsView({
       }
     });
   }
+  function exportActiveDoc() {
+    if (!activeDoc) {
+      onToast('No document open');
+      return;
+    }
+    const safe = (activeDoc.name || 'document').replace(/[^\w\- ]+/g, '');
+    if (activeDoc.type === 'docx') {
+      const html = activeDoc.content && activeDoc.content.html || '';
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html;
+      downloadFile(`${safe}.txt`, tmp.innerText || '');
+    } else if (activeDoc.type === 'xlsx') {
+      const rows = activeDoc.content && activeDoc.content.rows || [];
+      const csv = rows.map(r => r.map(v => `"${String(v || '').replace(/"/g, '""')}"`).join(',')).join('\n');
+      downloadFile(`${safe}.csv`, csv, 'text/csv');
+    } else {
+      const items = activeDoc.content && activeDoc.content.items || [];
+      const text = items.map((x, i) => `${i + 1}. [${x.done ? 'x' : ' '}] ${x.text}`).join('\n');
+      downloadFile(`${safe}.txt`, text);
+    }
+    onToast('Document exported');
+  }
   return React.createElement("div", {
     className: "view active docs-layout afu",
     style: {
@@ -3399,6 +3617,9 @@ function DocsView({
       flex: 1
     }
   }), activeDoc && React.createElement("button", {
+    className: "btn btn-ghost btn-sm",
+    onClick: exportActiveDoc
+  }, "\u2913 Export"), activeDoc && React.createElement("button", {
     className: "btn btn-ghost btn-sm",
     onClick: closeDoc
   }, "\u2190 Back to Library"), React.createElement("button", {
@@ -3765,11 +3986,14 @@ function DocsView({
 }
 function TextbooksView({
   onToast,
-  user
+  user,
+  notes,
+  setNotes
 }) {
   const BOOKS_KEY = `lexnotes:${user?.id || 'anon'}:textbooks`;
   const ANNS_KEY = `lexnotes:${user?.id || 'anon'}:annotations`;
   const ACTIVE_BOOK_KEY = `lexnotes:${user?.id || 'anon'}:active-book`;
+  const NOTES_META_KEY = `lexnotes:${user?.id || 'anon'}:notes-meta`;
   const [libCol, setLibCol] = useState(false);
   const [annOpen, setAnnOpen] = useState(true);
   const [tocOpen, setTocOpen] = useState(false);
@@ -3785,11 +4009,20 @@ function TextbooksView({
     y: 0
   });
   const [books, setBooks] = useState([]);
+  const [meta, setMeta] = useState({
+    extraCourses: [],
+    extraTopics: {},
+    extraSubsections: {}
+  });
   const savedRange = useRef(null);
   const paneRef = useRef();
   const fileRef = useRef();
   const TOC = ['Ch. 1 — Introduction to Torts', 'Ch. 2 — Intentional Torts', 'Ch. 3 — Negligence', '  § 3.1 The Reasonable Person', '  § 3.2 The Hand Formula', '  § 3.3 Custom as Evidence', 'Ch. 4 — Causation', 'Ch. 5 — Proximate Cause', 'Ch. 6 — Damages'];
   const activeBookObj = books.find(b => b.id === activeBook) || books[0] || null;
+  const allCourses = [...COURSES, ...(Array.isArray(meta.extraCourses) ? meta.extraCourses : [])];
+  const sectionKey = (courseId, topicId) => `${courseId || 'none'}::${topicId || 'none'}`;
+  const activeTopics = [...(allCourses.find(c => c.id === activeBookObj?.course)?.topics || []), ...(meta.extraTopics && meta.extraTopics[activeBookObj?.course] || [])];
+  const activeSubsections = meta.extraSubsections && meta.extraSubsections[sectionKey(activeBookObj?.course, activeBookObj?.topic)] || [];
   useEffect(() => {
     const savedBooks = readJSON(BOOKS_KEY, null);
     const savedAnns = readJSON(ANNS_KEY, null);
@@ -3797,7 +4030,12 @@ function TextbooksView({
     if (Array.isArray(savedBooks) && savedBooks.length) setBooks(savedBooks);
     if (Array.isArray(savedAnns) && savedAnns.length) setAnns(savedAnns);
     if (savedActive) setActiveBook(savedActive);
-  }, [BOOKS_KEY, ANNS_KEY, ACTIVE_BOOK_KEY]);
+    setMeta(readJSON(NOTES_META_KEY, {
+      extraCourses: [],
+      extraTopics: {},
+      extraSubsections: {}
+    }));
+  }, [BOOKS_KEY, ANNS_KEY, ACTIVE_BOOK_KEY, NOTES_META_KEY]);
   useDebouncedEffect(() => {
     writeJSON(BOOKS_KEY, books);
   }, [books, BOOKS_KEY], 280);
@@ -3809,6 +4047,13 @@ function TextbooksView({
       localStorage.setItem(ACTIVE_BOOK_KEY, activeBook);
     } catch {}
   }, [activeBook, ACTIVE_BOOK_KEY], 180);
+  useEffect(() => {
+    setMeta(readJSON(NOTES_META_KEY, {
+      extraCourses: [],
+      extraTopics: {},
+      extraSubsections: {}
+    }));
+  }, [notes, NOTES_META_KEY]);
   useEffect(() => {
     function onUp(e) {
       const pop = document.querySelector('.selpop');
@@ -3888,12 +4133,64 @@ function TextbooksView({
       fileType: f.type || 'unknown',
       fileSize: f.size,
       uploadedAt: new Date().toISOString(),
-      snippet
+      snippet,
+      course: '',
+      topic: '',
+      subsection: ''
     };
     setBooks(p => [nb, ...p]);
     setActiveBook(nb.id);
     onToast(`📚 "${name}" uploaded and saved`);
     e.target.value = '';
+  }
+  function patchActiveBook(patch) {
+    if (!activeBookObj) return;
+    setBooks(p => p.map(b => b.id === activeBookObj.id ? {
+      ...b,
+      ...patch
+    } : b));
+  }
+  function createReadingNote(text, title) {
+    if (!setNotes) {
+      onToast('Notes storage unavailable');
+      return;
+    }
+    const clean = (text || '').trim();
+    if (!clean) {
+      onToast('Nothing to save');
+      return;
+    }
+    const fallbackCourse = allCourses[0]?.id || '';
+    const fallbackTopic = (allCourses.find(c => c.id === activeBookObj?.course || fallbackCourse)?.topics || [])[0]?.id || 'general';
+    const note = {
+      id: nextId(),
+      course: activeBookObj?.course || fallbackCourse,
+      topic: activeBookObj?.topic || fallbackTopic,
+      subsection: activeBookObj?.subsection || '',
+      type: 'reading',
+      title: title || `${activeBookObj?.title || 'Textbook'} Reading Note`,
+      preview: clean.slice(0, 90),
+      date: 'Just now',
+      hasAudio: false,
+      hasMerge: false,
+      content: clean,
+      contentHtml: '',
+      bf: {
+        facts: '',
+        issue: '',
+        rule: '',
+        reasoning: '',
+        notes: ''
+      }
+    };
+    setNotes(p => [note, ...p]);
+    onToast('Reading note created');
+  }
+  function exportAnnotations() {
+    const body = anns.map((a, i) => `${i + 1}. ${a.quote}\n${a.note || ''}\nPage ${a.page} · ${a.color}`).join('\n\n');
+    downloadFile(`${(activeBookObj?.title || 'textbook').replace(/[^\w\- ]+/g, '')}-annotations.txt`, body || 'No annotations');
+    createReadingNote(body || 'No annotations', `${activeBookObj?.title || 'Textbook'} - Annotations`);
+    onToast('Annotations exported and added to notes');
   }
   return React.createElement("div", {
     className: "view active tbview afu",
@@ -4085,12 +4382,69 @@ function TextbooksView({
     onClick: () => setAnnOpen(v => !v),
     title: "Annotations"
   }, "\uD83D\uDCDD")), React.createElement("div", {
+    className: "tbtg"
+  }, React.createElement("select", {
+    className: "sel",
+    style: {
+      padding: '4px 8px',
+      minWidth: 130
+    },
+    value: activeBookObj?.course || '',
+    onChange: e => patchActiveBook({
+      course: e.target.value,
+      topic: '',
+      subsection: ''
+    })
+  }, React.createElement("option", {
+    value: ""
+  }, "Class"), allCourses.map(c => React.createElement("option", {
+    key: c.id,
+    value: c.id
+  }, c.label))), React.createElement("select", {
+    className: "sel",
+    style: {
+      padding: '4px 8px',
+      minWidth: 120
+    },
+    value: activeBookObj?.topic || '',
+    onChange: e => patchActiveBook({
+      topic: e.target.value,
+      subsection: ''
+    })
+  }, React.createElement("option", {
+    value: ""
+  }, "Topic"), activeTopics.map(t => React.createElement("option", {
+    key: t.id,
+    value: t.id
+  }, t.label))), React.createElement("select", {
+    className: "sel",
+    style: {
+      padding: '4px 8px',
+      minWidth: 130
+    },
+    value: activeBookObj?.subsection || '',
+    onChange: e => patchActiveBook({
+      subsection: e.target.value
+    })
+  }, React.createElement("option", {
+    value: ""
+  }, "Section"), activeSubsections.map(s => React.createElement("option", {
+    key: s.id,
+    value: s.id
+  }, s.label)))), React.createElement("div", {
     style: {
       flex: 1
     }
   }), React.createElement("button", {
     className: "btn btn-ghost btn-sm",
-    onClick: () => onToast('✎ Selection copied to Notes')
+    onClick: () => {
+      const selected = window.getSelection?.().toString() || '';
+      if (!selected.trim()) {
+        onToast('Select text first');
+        return;
+      }
+      createReadingNote(selected.trim(), `${activeBookObj?.title || 'Textbook'} - Selection`);
+    }
   }, "\u2192 Copy to Notes")), React.createElement("div", {
     style: {
       display: 'flex',
@@ -4244,7 +4598,7 @@ function TextbooksView({
     style: {
       width: '100%'
     },
-    onClick: () => onToast('✎ All annotations exported to Notes')
+    onClick: exportAnnotations
   }, "\u2192 Export All to Notes"))))), selPopup.show && React.createElement("div", {
     className: "selpop",
     style: {
@@ -4269,7 +4623,8 @@ function TextbooksView({
   }), React.createElement("button", {
     className: "selact",
     onClick: () => {
-      onToast('Copied to Notes');
+      const selected = window.getSelection()?.toString() || '';
+      createReadingNote(selected, `${activeBookObj?.title || 'Textbook'} - Selection`);
       setSelPopup(p => ({
         ...p,
         show: false
@@ -5229,7 +5584,8 @@ function App() {
     docs: docs
   }), !showAuth && view === 'practice' && React.createElement(PracticeView, {
     onToast: showToast,
-    user: user
+    user: user,
+    notes: notes
   }), !showAuth && view === 'calendar' && React.createElement(CalendarView, {
     onToast: showToast,
     user: user,
@@ -5240,7 +5596,9 @@ function App() {
     onToast: showToast
   }), !showAuth && view === 'textbooks' && React.createElement(TextbooksView, {
     onToast: showToast,
-    user: user
+    user: user,
+    notes: notes,
+    setNotes: setNotes
   }), !showAuth && view === 'integrations' && React.createElement(IntegrationsView, {
     onToast: showToast,
     user: user

@@ -178,6 +178,7 @@ textarea{resize:none;}
 .wgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:0 24px 24px;align-content:start;}
 .wcard{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
 .wcard.span2{grid-column:span 2;}
+.wcard.dragging{opacity:.55;border-color:rgba(201,168,76,.45);}
 .whead{padding:10px 13px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
 .wtitle{font-size:8.5px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-family:'JetBrains Mono',monospace;}
 .wbody{padding:11px 13px;}
@@ -201,6 +202,7 @@ textarea{resize:none;}
 .nitem{padding:9px 10px;border-radius:5px;cursor:pointer;border-left:2px solid transparent;margin:2px 5px;transition:background .1s;}
 .nitem:hover{background:var(--surface2);}
 .nitem.on{background:var(--surface2);border-left-color:var(--accent);border-radius:0 5px 5px 0;margin-left:0;padding-left:11px;}
+.nitem small{color:var(--dim);font-size:9.5px;}
 .nbadge{font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;font-family:'JetBrains Mono',monospace;margin-bottom:3px;}
 .ntitle{font-size:12px;font-weight:500;margin-bottom:2px;line-height:1.35;}
 .npreview{font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -216,6 +218,12 @@ textarea{resize:none;}
 .etitle{font-family:'Playfair Display',serif;font-size:24px;font-weight:700;background:none;border:none;outline:none;width:100%;margin-bottom:4px;letter-spacing:-.3px;line-height:1.3;color:var(--text);}
 .emeta{font-size:10.5px;color:var(--dim);font-family:'JetBrains Mono',monospace;margin-bottom:22px;display:flex;gap:10px;flex-wrap:wrap;padding-bottom:16px;border-bottom:1px solid var(--border);}
 .ebody{font-size:13.5px;line-height:1.85;color:var(--text);background:none;border:none;outline:none;width:100%;min-height:360px;font-family:'DM Sans',sans-serif;}
+.ebody-rich{font-size:14px;line-height:1.85;color:var(--text);background:transparent;border:1px solid var(--border);border-radius:8px;outline:none;width:100%;min-height:360px;padding:14px 16px;font-family:'DM Sans',sans-serif;}
+.ebody-rich:focus{border-color:rgba(201,168,76,.4);background:rgba(201,168,76,.03);}
+.note-toolbar{display:flex;gap:6px;margin-bottom:10px;align-items:center;flex-wrap:wrap;padding-bottom:10px;border-bottom:1px solid var(--border);}
+.subfilter{display:flex;gap:6px;padding:6px 9px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+.subchip{padding:2px 7px;border-radius:99px;font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--muted);border:1px solid var(--border);cursor:pointer;}
+.subchip.on{background:var(--accent-dim);color:var(--accent);border-color:rgba(201,168,76,.3);}
 .bsec{margin-bottom:20px;}
 .blbl{font-size:8.5px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:var(--accent);font-family:'JetBrains Mono',monospace;margin-bottom:5px;display:block;opacity:.85;}
 .bta{background:transparent;border:1px solid var(--border);border-radius:6px;padding:9px 12px;font-size:13px;line-height:1.7;color:var(--text);outline:none;width:100%;min-height:56px;font-family:'DM Sans',sans-serif;transition:border-color .14s,background .14s;}
@@ -401,6 +409,8 @@ textarea{resize:none;}
 .setsection{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;display:flex;flex-direction:column;gap:16px;}
 .setrow{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);}
 .setrow:last-child{border:none;}
+.setrow.drag{cursor:grab;touch-action:none;user-select:none;}
+.setrow.drag.on{background:var(--surface2);}
 .toggle-track{width:36px;height:20px;border-radius:99px;background:var(--border);cursor:pointer;position:relative;transition:background .2s;flex-shrink:0;}
 .toggle-track.on{background:var(--accent);}
 .toggle-thumb{width:16px;height:16px;border-radius:50%;background:white;position:absolute;top:2px;left:2px;transition:left .2s;}
@@ -785,8 +795,101 @@ function Dashboard({notes,onToast,onNav,user}){
     setUpcoming(out.slice(0,5));
   },[CAL_KEY]);
 
-  const isOn=id=>widgets.find(w=>w.id===id)?.on;
+  const [dragIdx,setDragIdx]=useState(null);
+  const [overIdx,setOverIdx]=useState(null);
   const toggleWidget=id=>setWidgets(p=>p.map(w=>w.id===id?{...w,on:!w.on}:w));
+  const moveWidget=(from,to)=>{
+    if(from===to||from<0||to<0)return;
+    setWidgets(p=>{
+      if(to>=p.length)return p;
+      const next=[...p];
+      const [item]=next.splice(from,1);
+      next.splice(to,0,item);
+      return next;
+    });
+  };
+  const cardById={
+    upcoming:<div className="wcard">
+      <div className="whead"><span className="wtitle">Upcoming</span><button className="btn btn-ghost btn-sm" onClick={()=>onNav('calendar')}>Calendar →</button></div>
+      <div className="wbody">{upcoming.length===0?<div style={{fontSize:11.5,color:'var(--muted)'}}>No events yet. Connect Calendar apps or add events.</div>:upcoming.map((u,i)=>(
+        <div key={i} className="wrow">
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            <div style={{width:3,height:32,borderRadius:2,background:u.c,flexShrink:0}}/>
+            <div><div style={{fontSize:12,fontWeight:500}}>{u.l}</div><div style={{fontSize:10,color:'var(--dim)',fontFamily:'JetBrains Mono,monospace'}}>{u.w}</div></div>
+          </div>
+        </div>
+      ))}</div></div>,
+    recent:<div className="wcard">
+      <div className="whead"><span className="wtitle">Recent Notes</span><button className="btn btn-ghost btn-sm" onClick={()=>onNav('notes')}>All →</button></div>
+      <div className="wbody">{notes.length===0?<div style={{fontSize:11.5,color:'var(--muted)'}}>No notes yet.</div>:notes.slice(0,5).map(n=>{
+        const c=COURSES.find(c=>c.id===n.course);
+        return(
+          <div key={n.id} className="wrow" style={{cursor:'pointer'}} onClick={()=>onNav('notes')}>
+            <div style={{display:'flex',alignItems:'center',gap:7,flex:1,minWidth:0}}>
+              <div style={{width:6,height:6,borderRadius:'50%',background:c?.color,flexShrink:0}}/>
+              <span style={{fontSize:12,fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{n.title}</span>
+            </div>
+            <span style={{fontSize:9,background:'var(--surface2)',padding:'1px 5px',borderRadius:3,color:'var(--dim)',flexShrink:0}}>{n.type}</span>
+          </div>
+        );
+      })}</div></div>,
+    insights:<div className="wcard">
+      <div className="whead"><span className="wtitle">AI Insights</span><div className="aidot"/></div>
+      <div className="wbody">
+        <div style={{fontSize:11.5,color:'var(--muted)',lineHeight:1.6,marginBottom:10}}>You've covered negligence duty extensively but haven't reviewed <strong style={{color:'var(--text)'}}>proximate cause</strong> recently.</div>
+        <div style={{fontSize:11.5,color:'var(--muted)',lineHeight:1.6,marginBottom:10}}>Contracts gap: <strong style={{color:'var(--accent)'}}>promissory estoppel</strong> — 3 cases assigned, 0 briefed.</div>
+        <button className="btn btn-ghost btn-sm" style={{width:'100%',marginTop:4}} onClick={()=>onToast('Generating personalized study plan…')}>⚡ Generate Study Plan</button>
+      </div>
+    </div>,
+    practice:<div className="wcard">
+      <div className="whead"><span className="wtitle">Practice Stats</span><button className="btn btn-ghost btn-sm" onClick={()=>onNav('practice')}>Practice →</button></div>
+      <div className="wbody">{COURSES.length===0?<div style={{fontSize:11.5,color:'var(--muted)'}}>Add a course to see stats.</div>:COURSES.map((c,i)=>{
+        const pct=[72,68,81,74,65][i];
+        return(
+          <div key={c.id} className="wrow">
+            <div style={{display:'flex',alignItems:'center',gap:7}}><div style={{width:6,height:6,borderRadius:'50%',background:c.color}}/><span style={{fontSize:11.5}}>{c.label}</span></div>
+            <div style={{display:'flex',alignItems:'center',gap:7}}>
+              <div style={{width:55,height:3,borderRadius:99,background:'var(--border)',overflow:'hidden'}}><div style={{width:`${pct}%`,height:'100%',background:c.color,borderRadius:99}}/></div>
+              <span style={{fontSize:10,fontFamily:'JetBrains Mono,monospace',color:'var(--muted)',width:26,textAlign:'right'}}>{pct}%</span>
+            </div>
+          </div>
+        );
+      })}</div></div>,
+    outline:<div className="wcard span2">
+      <div className="whead"><span className="wtitle">Outline Preview — Contracts</span><button className="btn btn-ghost btn-sm" onClick={()=>onNav('outline')}>Full Outline →</button></div>
+      <div className="wbody" style={{fontFamily:'JetBrains Mono,monospace',fontSize:11,lineHeight:1.85,color:'var(--muted)',display:'grid',gridTemplateColumns:'1fr 1fr',columnGap:24}}>
+        <div><span style={{color:'var(--text)',fontWeight:600}}>I. Formation</span><br/>
+        &nbsp;&nbsp;A. Offer — definite terms, intent<br/>
+        &nbsp;&nbsp;B. Acceptance — mirror image / UCC §2-207<br/>
+        &nbsp;&nbsp;C. Consideration — bargained-for exchange<br/>
+        <span style={{color:'var(--text)',fontWeight:600}}>II. Defenses</span><br/>
+        &nbsp;&nbsp;A. Fraud, Duress, Undue Influence<br/>
+        &nbsp;&nbsp;B. Mistake — mutual vs. unilateral</div>
+        <div><span style={{color:'var(--text)',fontWeight:600}}>III. Breach & Remedies</span><br/>
+        &nbsp;&nbsp;A. Material vs. Minor Breach<br/>
+        &nbsp;&nbsp;B. Expectation Damages<br/>
+        &nbsp;&nbsp;C. Consequential — <span style={{color:'var(--accent)',fontStyle:'italic'}}>Hadley v. Baxendale</span><br/>
+        &nbsp;&nbsp;D. Reliance & Restitution<br/>
+        <span style={{color:'var(--text)',fontWeight:600}}>IV. Impossibility / Frustration</span></div>
+      </div>
+    </div>,
+    inbox:<div className="wcard">
+      <div className="whead"><span className="wtitle">Inbox</span><button className="btn btn-ghost btn-sm" onClick={()=>onToast('Compose email')}>Compose</button></div>
+      <div className="wbody">{[
+        {from:'Prof. Chen',sub:'Re: Tuesday Office Hours',t:'9:14am',unread:true},
+        {from:'Canvas LMS',sub:'Contracts: Assignment 3 Posted',t:'8:02am',unread:true},
+        {from:'Study Group',sub:'Torts outline — can we meet?',t:'Yesterday',unread:false},
+      ].map((m,i)=>(
+        <div key={i} className="wrow" style={{cursor:'pointer',gap:8}} onClick={()=>onToast(`Opening: ${m.sub}`)}>
+          <div style={{width:5,height:5,borderRadius:'50%',background:m.unread?'var(--accent)':'transparent',border:m.unread?'none':'1px solid var(--border)',flexShrink:0,marginTop:2}}/>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:11.5,fontWeight:m.unread?600:400,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{m.from}</div>
+            <div style={{fontSize:10.5,color:'var(--muted)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{m.sub}</div>
+          </div>
+          <span style={{fontSize:9.5,color:'var(--dim)',fontFamily:'JetBrains Mono,monospace',flexShrink:0}}>{m.t}</span>
+        </div>
+      ))}</div></div>,
+  };
 
   return(
     <div className="view active afu" style={{flexDirection:'column'}}>
@@ -813,105 +916,30 @@ function Dashboard({notes,onToast,onNav,user}){
         </div>
 
         <div className="wgrid">
-          {/* Upcoming */}
-          {isOn('upcoming')&&<div className="wcard">
-            <div className="whead"><span className="wtitle">Upcoming</span><button className="btn btn-ghost btn-sm" onClick={()=>onNav('calendar')}>Calendar →</button></div>
-            <div className="wbody">{upcoming.length===0?<div style={{fontSize:11.5,color:'var(--muted)'}}>No events yet. Connect Calendar apps or add events.</div>:upcoming.map((u,i)=>(
-              <div key={i} className="wrow">
-                <div style={{display:'flex',alignItems:'center',gap:8}}>
-                  <div style={{width:3,height:32,borderRadius:2,background:u.c,flexShrink:0}}/>
-                  <div><div style={{fontSize:12,fontWeight:500}}>{u.l}</div><div style={{fontSize:10,color:'var(--dim)',fontFamily:'JetBrains Mono,monospace'}}>{u.w}</div></div>
-                </div>
-              </div>
-            ))}</div></div>}
-
-          {/* Recent Notes */}
-          {isOn('recent')&&<div className="wcard">
-            <div className="whead"><span className="wtitle">Recent Notes</span><button className="btn btn-ghost btn-sm" onClick={()=>onNav('notes')}>All →</button></div>
-            <div className="wbody">{notes.length===0?<div style={{fontSize:11.5,color:'var(--muted)'}}>No notes yet.</div>:notes.slice(0,5).map(n=>{
-              const c=COURSES.find(c=>c.id===n.course);
-              return(
-                <div key={n.id} className="wrow" style={{cursor:'pointer'}} onClick={()=>onNav('notes')}>
-                  <div style={{display:'flex',alignItems:'center',gap:7,flex:1,minWidth:0}}>
-                    <div style={{width:6,height:6,borderRadius:'50%',background:c?.color,flexShrink:0}}/>
-                    <span style={{fontSize:12,fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{n.title}</span>
-                  </div>
-                  <span style={{fontSize:9,background:'var(--surface2)',padding:'1px 5px',borderRadius:3,color:'var(--dim)',flexShrink:0}}>{n.type}</span>
-                </div>
-              );
-            })}</div></div>}
-
-          {/* AI Insights */}
-          {isOn('insights')&&<div className="wcard">
-            <div className="whead"><span className="wtitle">AI Insights</span><div className="aidot"/></div>
-            <div className="wbody">
-              <div style={{fontSize:11.5,color:'var(--muted)',lineHeight:1.6,marginBottom:10}}>You've covered negligence duty extensively but haven't reviewed <strong style={{color:'var(--text)'}}>proximate cause</strong> recently.</div>
-              <div style={{fontSize:11.5,color:'var(--muted)',lineHeight:1.6,marginBottom:10}}>Contracts gap: <strong style={{color:'var(--accent)'}}>promissory estoppel</strong> — 3 cases assigned, 0 briefed.</div>
-              <button className="btn btn-ghost btn-sm" style={{width:'100%',marginTop:4}} onClick={()=>onToast('Generating personalized study plan…')}>⚡ Generate Study Plan</button>
-            </div>
-          </div>}
-
-          {/* Practice by course */}
-          {isOn('practice')&&<div className="wcard">
-            <div className="whead"><span className="wtitle">Practice Stats</span><button className="btn btn-ghost btn-sm" onClick={()=>onNav('practice')}>Practice →</button></div>
-            <div className="wbody">{COURSES.length===0?<div style={{fontSize:11.5,color:'var(--muted)'}}>Add a course to see stats.</div>:COURSES.map((c,i)=>{
-              const pct=[72,68,81,74,65][i];
-              return(
-                <div key={c.id} className="wrow">
-                  <div style={{display:'flex',alignItems:'center',gap:7}}><div style={{width:6,height:6,borderRadius:'50%',background:c.color}}/><span style={{fontSize:11.5}}>{c.label}</span></div>
-                  <div style={{display:'flex',alignItems:'center',gap:7}}>
-                    <div style={{width:55,height:3,borderRadius:99,background:'var(--border)',overflow:'hidden'}}><div style={{width:`${pct}%`,height:'100%',background:c.color,borderRadius:99}}/></div>
-                    <span style={{fontSize:10,fontFamily:'JetBrains Mono,monospace',color:'var(--muted)',width:26,textAlign:'right'}}>{pct}%</span>
-                  </div>
-                </div>
-              );
-            })}</div></div>}
-
-          {/* Outline preview */}
-          {isOn('outline')&&<div className="wcard span2">
-            <div className="whead"><span className="wtitle">Outline Preview — Contracts</span><button className="btn btn-ghost btn-sm" onClick={()=>onNav('outline')}>Full Outline →</button></div>
-            <div className="wbody" style={{fontFamily:'JetBrains Mono,monospace',fontSize:11,lineHeight:1.85,color:'var(--muted)',display:'grid',gridTemplateColumns:'1fr 1fr',columnGap:24}}>
-              <div><span style={{color:'var(--text)',fontWeight:600}}>I. Formation</span><br/>
-              &nbsp;&nbsp;A. Offer — definite terms, intent<br/>
-              &nbsp;&nbsp;B. Acceptance — mirror image / UCC §2-207<br/>
-              &nbsp;&nbsp;C. Consideration — bargained-for exchange<br/>
-              <span style={{color:'var(--text)',fontWeight:600}}>II. Defenses</span><br/>
-              &nbsp;&nbsp;A. Fraud, Duress, Undue Influence<br/>
-              &nbsp;&nbsp;B. Mistake — mutual vs. unilateral</div>
-              <div><span style={{color:'var(--text)',fontWeight:600}}>III. Breach & Remedies</span><br/>
-              &nbsp;&nbsp;A. Material vs. Minor Breach<br/>
-              &nbsp;&nbsp;B. Expectation Damages<br/>
-              &nbsp;&nbsp;C. Consequential — <span style={{color:'var(--accent)',fontStyle:'italic'}}>Hadley v. Baxendale</span><br/>
-              &nbsp;&nbsp;D. Reliance & Restitution<br/>
-              <span style={{color:'var(--text)',fontWeight:600}}>IV. Impossibility / Frustration</span></div>
-            </div>
-          </div>}
-
-          {/* Email */}
-          {isOn('inbox')&&<div className="wcard">
-            <div className="whead"><span className="wtitle">Inbox</span><button className="btn btn-ghost btn-sm" onClick={()=>onToast('Compose email')}>Compose</button></div>
-            <div className="wbody">{[
-              {from:'Prof. Chen',sub:'Re: Tuesday Office Hours',t:'9:14am',unread:true},
-              {from:'Canvas LMS',sub:'Contracts: Assignment 3 Posted',t:'8:02am',unread:true},
-              {from:'Study Group',sub:'Torts outline — can we meet?',t:'Yesterday',unread:false},
-            ].map((m,i)=>(
-              <div key={i} className="wrow" style={{cursor:'pointer',gap:8}} onClick={()=>onToast(`Opening: ${m.sub}`)}>
-                <div style={{width:5,height:5,borderRadius:'50%',background:m.unread?'var(--accent)':'transparent',border:m.unread?'none':'1px solid var(--border)',flexShrink:0,marginTop:2}}/>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:11.5,fontWeight:m.unread?600:400,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{m.from}</div>
-                  <div style={{fontSize:10.5,color:'var(--muted)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{m.sub}</div>
-                </div>
-                <span style={{fontSize:9.5,color:'var(--dim)',fontFamily:'JetBrains Mono,monospace',flexShrink:0}}>{m.t}</span>
-              </div>
-            ))}</div></div>}
+          {widgets.filter(w=>w.on).map(w=><React.Fragment key={w.id}>{cardById[w.id]||null}</React.Fragment>)}
         </div>
       </div>
       <Modal open={showCustomize} onClose={()=>setShowCustomize(false)} title="Customize Dashboard" sub="Show or hide widgets" size="modal-sm">
         <div className="mbody">
-          {widgets.map(w=>(
-            <div key={w.id} className="setrow" style={{padding:'8px 0'}}>
+          {widgets.map((w,idx)=>(
+            <div
+              key={w.id}
+              className={`setrow drag${dragIdx===idx?' on':''}`}
+              style={{padding:'8px 0'}}
+              onPointerDown={()=>setDragIdx(idx)}
+              onPointerEnter={()=>dragIdx!==null&&setOverIdx(idx)}
+              onPointerUp={()=>{
+                if(dragIdx!==null&&overIdx!==null)moveWidget(dragIdx,overIdx);
+                setDragIdx(null);setOverIdx(null);
+              }}
+              onPointerCancel={()=>{setDragIdx(null);setOverIdx(null);}}
+            >
               <div style={{fontSize:12}}>{w.label}</div>
-              <Toggle on={w.on} onToggle={()=>toggleWidget(w.id)}/>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <button className="btn btn-ghost btn-sm" onClick={()=>moveWidget(idx,Math.max(0,idx-1))}>↑</button>
+                <button className="btn btn-ghost btn-sm" onClick={()=>moveWidget(idx,Math.min(widgets.length-1,idx+1))}>↓</button>
+                <Toggle on={w.on} onToggle={()=>toggleWidget(w.id)}/>
+              </div>
             </div>
           ))}
           <button className="btn btn-primary" style={{width:'100%',padding:10}} onClick={()=>{setShowCustomize(false);onToast('Dashboard layout saved');}}>Done</button>
@@ -926,8 +954,10 @@ function NotesView({notes,setNotes,onToast,user}){
   const NOTES_META_KEY=`lexnotes:${user?.id||'anon'}:notes-meta`;
   const [activeCourse,setActiveCourse]=useState('');
   const [activeTopic,setActiveTopic]=useState('');
+  const [activeSubsection,setActiveSubsection]=useState('');
   const [extraCourses,setExtraCourses]=useState([]);
   const [extraTopics,setExtraTopics]=useState({});
+  const [extraSubsections,setExtraSubsections]=useState({});
   const [activeId,setActiveId]=useState(null);
   const [openCourses,setOpenCourses]=useState({});
   const [navCol,setNavCol]=useState(false);
@@ -947,6 +977,8 @@ function NotesView({notes,setNotes,onToast,user}){
   const [briefDraft,setBriefDraft]=useState(null);
   const audioRef=useRef();
   const recRef=useRef();
+  const richRef=useRef();
+  const richSaveRef=useRef();
 
   useEffect(()=>{
     if(recording){recRef.current=setInterval(()=>setRecSecs(s=>s+1),1000);}
@@ -956,11 +988,15 @@ function NotesView({notes,setNotes,onToast,user}){
 
   const fmt=s=>`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
   const allCourses=[...COURSES,...extraCourses];
+  const subsectionKey=(courseId,topicId)=>`${courseId||'none'}::${topicId||'none'}`;
   const activeNote=notes.find(n=>n.id===activeId);
   const courseObj=allCourses.find(c=>c.id===activeCourse);
-  const topicObj=courseObj?.topics.find(t=>t.id===activeTopic);
+  const selectedTopics=[...(courseObj?.topics||[]),...(extraTopics[activeCourse]||[])];
+  const topicObj=selectedTopics.find(t=>t.id===activeTopic);
+  const currentSubsections=extraSubsections[subsectionKey(activeCourse,activeTopic)]||[];
   const filtered=notes.filter(n=>{
     if(n.course!==activeCourse||n.topic!==activeTopic)return false;
+    if(activeSubsection&&n.subsection!==activeSubsection)return false;
     if(typeFilter!=='all'&&n.type!==typeFilter)return false;
     if(search&&!n.title.toLowerCase().includes(search.toLowerCase()))return false;
     return true;
@@ -982,12 +1018,13 @@ function NotesView({notes,setNotes,onToast,user}){
     if(saved){
       if(Array.isArray(saved.extraCourses))setExtraCourses(saved.extraCourses);
       if(saved.extraTopics&&typeof saved.extraTopics==='object')setExtraTopics(saved.extraTopics);
+      if(saved.extraSubsections&&typeof saved.extraSubsections==='object')setExtraSubsections(saved.extraSubsections);
     }
   },[NOTES_META_KEY]);
 
   useDebouncedEffect(()=>{
-    writeJSON(NOTES_META_KEY,{extraCourses,extraTopics});
-  },[extraCourses,extraTopics,NOTES_META_KEY],260);
+    writeJSON(NOTES_META_KEY,{extraCourses,extraTopics,extraSubsections});
+  },[extraCourses,extraTopics,extraSubsections,NOTES_META_KEY],260);
 
   useEffect(()=>{
     if(activeNote?.type==='brief'){
@@ -1023,6 +1060,11 @@ function NotesView({notes,setNotes,onToast,user}){
   },[allCourses,activeCourse,activeTopic,extraTopics]);
 
   useEffect(()=>{
+    const list=extraSubsections[subsectionKey(activeCourse,activeTopic)]||[];
+    if(activeSubsection&&!list.some(s=>s.id===activeSubsection))setActiveSubsection('');
+  },[activeCourse,activeTopic,extraSubsections,activeSubsection]);
+
+  useEffect(()=>{
     if(notes.length===0){
       if(activeId!==null)setActiveId(null);
       return;
@@ -1030,9 +1072,19 @@ function NotesView({notes,setNotes,onToast,user}){
     if(activeId===null||!notes.some(n=>n.id===activeId))setActiveId(notes[0].id);
   },[notes,activeId]);
 
+  useEffect(()=>{
+    if(activeNote&&activeNote.subsection&&activeNote.subsection!==activeSubsection){
+      setActiveSubsection(activeNote.subsection);
+    }
+    if(activeNote?.type!=='brief'&&richRef.current){
+      const html=activeNote?.contentHtml||esc(activeNote?.content||'').replace(/\n/g,'<br/>');
+      richRef.current.innerHTML=html||'<p><br/></p>';
+    }
+  },[activeId]);
+
   function createNote(){
     if(!newTitle.trim()){onToast('Enter a title');return;}
-    const n={id:nextId(),course:activeCourse,topic:activeTopic,type:newType,title:newTitle,preview:'',date:'Feb 13',hasAudio:false,hasMerge:false,content:'',bf:{facts:'',issue:'',rule:'',reasoning:'',notes:''}};
+    const n={id:nextId(),course:activeCourse,topic:activeTopic,subsection:activeSubsection||'',type:newType,title:newTitle,preview:'',date:'Feb 13',hasAudio:false,hasMerge:false,content:'',contentHtml:'',bf:{facts:'',issue:'',rule:'',reasoning:'',notes:''}};
     setNotes(p=>[n,...p]);setActiveId(n.id);setShowNew(false);setNewTitle('');
     onToast('✎ Note created');
   }
@@ -1063,6 +1115,21 @@ function NotesView({notes,setNotes,onToast,user}){
     onToast(`Topic "${label}" added`);
   }
 
+  function addSubsection(){
+    if(!activeCourse||!activeTopic){onToast('Pick a course and topic first');return;}
+    const name=(prompt('Subsection name (e.g., Week 2 or Defenses)')||'').trim();
+    if(!name)return;
+    const kind=((prompt('Subsection type: topic or week','topic')||'topic').trim().toLowerCase()==='week')?'week':'topic';
+    const id=name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')||`sub-${nextId()}`;
+    const key=subsectionKey(activeCourse,activeTopic);
+    const list=extraSubsections[key]||[];
+    if(list.some(s=>s.id===id)){onToast('Subsection already exists');return;}
+    const row={id,label:name,kind};
+    setExtraSubsections(p=>({...p,[key]:[...list,row]}));
+    setActiveSubsection(id);
+    onToast(`Subsection "${name}" added`);
+  }
+
   function exportNote(){
     if(!activeNote){onToast('No note selected');return;}
     const body=activeNote.type==='brief'
@@ -1070,6 +1137,24 @@ function NotesView({notes,setNotes,onToast,user}){
       :(activeNote.content||'');
     downloadFile(`${(activeNote.title||'note').replace(/[^\w\- ]+/g,'')}.txt`,`${activeNote.title}\n\n${body}`);
     onToast('Note exported');
+  }
+
+  function saveRichNow(){
+    if(!activeNote||activeNote.type==='brief'||!richRef.current)return;
+    const html=richRef.current.innerHTML||'';
+    const tmp=document.createElement('div');tmp.innerHTML=html;
+    const text=tmp.innerText||'';
+    setNotes(p=>p.map(n=>n.id===activeId?{...n,contentHtml:html,content:text}:n));
+  }
+
+  function queueRichSave(){
+    clearTimeout(richSaveRef.current);
+    richSaveRef.current=setTimeout(saveRichNow,180);
+  }
+
+  function noteCmd(name,val){
+    try{document.execCommand(name,false,val);}catch{}
+    queueRichSave();
   }
 
   async function shareNote(){
@@ -1084,7 +1169,7 @@ function NotesView({notes,setNotes,onToast,user}){
     if(!f)return;
     const title=`Audio Note — ${f.name.replace(/\.[^.]+$/,'')}`;
     const content=`[Uploaded audio]\nFile: ${f.name}\nSize: ${(f.size/1024/1024).toFixed(2)} MB\nImported: ${new Date().toLocaleString()}\n\nTranscript processing ready via /api/transcribe.`;
-    const n={id:nextId(),course:activeCourse,topic:activeTopic||courseObj?.topics?.[0]?.id||'general',type:'auto',title,preview:'Uploaded audio ready for transcription',date:'Just now',hasAudio:true,hasMerge:true,content,bf:{facts:'',issue:'',rule:'',reasoning:'',notes:''}};
+    const n={id:nextId(),course:activeCourse,topic:activeTopic||courseObj?.topics?.[0]?.id||'general',subsection:activeSubsection||'',type:'auto',title,preview:'Uploaded audio ready for transcription',date:'Just now',hasAudio:true,hasMerge:true,content,contentHtml:'',bf:{facts:'',issue:'',rule:'',reasoning:'',notes:''}};
     setNotes(p=>[n,...p]);setActiveId(n.id);
     onToast('Audio file attached as auto note');
     e.target.value='';
@@ -1105,6 +1190,8 @@ function NotesView({notes,setNotes,onToast,user}){
     if(!activeNote||activeNote.type!=='brief'||!briefDraft)return;
     setNotes(p=>p.map(n=>n.id===activeId?{...n,bf:{...n.bf,...briefDraft}}:n));
   }
+
+  useEffect(()=>()=>clearTimeout(richSaveRef.current),[]);
 
   return(
     <div className="view active notes-layout" style={{flexDirection:'row'}}>
@@ -1159,11 +1246,20 @@ function NotesView({notes,setNotes,onToast,user}){
           <button className="btn btn-primary btn-sm" onClick={()=>setShowNew(true)}>+</button>
         </div>
         <div className="nfilter">
-          {['all','brief','class','auto'].map(f=>(
+          {['all','brief','class','auto','reading'].map(f=>(
             <span key={f} className={`nfc${typeFilter===f?' on':''}`} onClick={()=>setTypeFilter(f)}>
-              {f==='all'?'All':f==='brief'?'📋':f==='class'?'✎':'🎙'} {f==='all'?'':'  '}{f==='brief'?'Brief':f==='class'?'Class':f==='auto'?'Auto':''}
+              {f==='all'?'All':f==='brief'?'📋':f==='class'?'✎':f==='auto'?'🎙':'📖'} {f==='all'?'':'  '}{f==='brief'?'Brief':f==='class'?'Class':f==='auto'?'Auto':'Reading'}
             </span>
           ))}
+        </div>
+        <div className="subfilter">
+          <span className={`subchip${activeSubsection===''?' on':''}`} onClick={()=>setActiveSubsection('')}>All Sections</span>
+          {currentSubsections.map(s=>(
+            <span key={s.id} className={`subchip${activeSubsection===s.id?' on':''}`} onClick={()=>setActiveSubsection(s.id)}>
+              {s.kind==='week'?'Wk':'Tp'} · {s.label}
+            </span>
+          ))}
+          <span className="subchip" onClick={addSubsection}>+ Section</span>
         </div>
         <div style={{flex:1,overflowY:'auto',padding:'4px 0'}}>
           {filtered.length===0&&<div style={{padding:'24px 14px',textAlign:'center',color:'var(--dim)',fontSize:12}}>No notes yet.<br/><button className="btn btn-primary btn-sm" style={{marginTop:8}} onClick={()=>setShowNew(true)}>+ Create One</button></div>}
@@ -1176,6 +1272,7 @@ function NotesView({notes,setNotes,onToast,user}){
               </div>
               <div className="ntitle">{n.title}</div>
               <div className="npreview">{n.preview||n.content?.slice(0,55)}</div>
+              {n.subsection&&<small>{(currentSubsections.find(s=>s.id===n.subsection)?.label)||n.subsection}</small>}
               <div className="ndate">{n.date}</div>
             </div>
           ))}
@@ -1235,8 +1332,23 @@ function NotesView({notes,setNotes,onToast,user}){
                         </div>
                       ))
                     ):(
-                      <textarea className="ebody" defaultValue={activeNote.content||''} placeholder="Start writing…"
-                        onBlur={e=>setNotes(p=>p.map(n=>n.id===activeId?{...n,content:e.target.value}:n))}/>
+                      <div>
+                        <div className="note-toolbar">
+                          <button className="btn btn-ghost btn-sm" onClick={()=>noteCmd('bold')}>B</button>
+                          <button className="btn btn-ghost btn-sm" onClick={()=>noteCmd('italic')}><i>I</i></button>
+                          <button className="btn btn-ghost btn-sm" onClick={()=>noteCmd('underline')}><u>U</u></button>
+                          <button className="btn btn-ghost btn-sm" onClick={()=>noteCmd('insertUnorderedList')}>• List</button>
+                          <button className="btn btn-ghost btn-sm" onClick={()=>noteCmd('insertOrderedList')}>1. List</button>
+                        </div>
+                        <div
+                          ref={richRef}
+                          className="ebody-rich"
+                          contentEditable
+                          suppressContentEditableWarning
+                          onInput={queueRichSave}
+                          onBlur={saveRichNow}
+                        />
+                      </div>
                     )}
                   </div>
                 ):(
@@ -1436,6 +1548,14 @@ function OutlineView({onToast,user,notes,docs}){
     cmd('insertHTML',`<p>${safe}</p>`);
   }
 
+  function insertLinkedCite(note){
+    const cite=note.citation||note.title||'Linked Note';
+    const snippet=(note.preview||note.content||'').slice(0,180);
+    const safeCite=esc(cite);
+    const safeSnippet=esc(snippet);
+    cmd('insertHTML',`<p><em style="background:rgba(201,168,76,.24);padding:1px 4px;border-radius:4px">[${safeCite}]</em> ${safeSnippet}</p>`);
+  }
+
   function exportOutline(ext){
     if(!courseId){onToast('Select a course first');return;}
     const safeCourse=(courses.find(c=>c.id===courseId)?.label||courseId).replace(/\s+/g,'-').toLowerCase();
@@ -1507,6 +1627,7 @@ function OutlineView({onToast,user,notes,docs}){
               <div style={{display:'flex',gap:6}}>
                 <button className="btn btn-ghost btn-sm" onClick={()=>insertAtCursor(`[Case] ${n.title}\n${n.preview||''}`)}>+ Case</button>
                 <button className="btn btn-ghost btn-sm" onClick={()=>insertAtCursor(`[Note] ${n.title}\n${(n.content||'').slice(0,260)}`)}>+ Note</button>
+                <button className="btn btn-ghost btn-sm" onClick={()=>insertLinkedCite(n)}>+ Cite</button>
               </div>
             </div>
           ))}
@@ -1532,20 +1653,59 @@ function OutlineView({onToast,user,notes,docs}){
 }
 
 /* ═══════════════ PRACTICE VIEW ═════════════════ */
-function PracticeView({onToast,user}){
+function PracticeView({onToast,user,notes}){
   const [qi,setQi]=useState(0);
   const [ans,setAns]=useState(null);
   const [cFilter,setCFilter]=useState('All');
   const [score,setScore]=useState({c:0,t:0});
-  const q=PRACTICE_QS[qi];
+  const dynamicQs=useMemo(()=>{
+    const source=(notes||[]).filter(n=>n.title||n.content||n.preview).slice(0,80);
+    const byCourse={};
+    source.forEach(n=>{
+      const key=n.course||'general';
+      if(!byCourse[key])byCourse[key]=[];
+      byCourse[key].push(n);
+    });
+    const makeQ=(n,idx)=>{
+      const text=(n.content||n.preview||'').replace(/\s+/g,' ').trim();
+      const snippet=text.slice(0,180)||`Key concept from "${n.title}"`;
+      return{
+        id:`n_${n.id}_${idx}`,
+        course:(n.course||'General').replace(/-/g,' ').replace(/\b\w/g,m=>m.toUpperCase()),
+        topic:(n.topic||'General').replace(/-/g,' ').replace(/\b\w/g,m=>m.toUpperCase()),
+        sub:n.subsection?`Section: ${n.subsection.replace(/-/g,' ')}`:'From your notes',
+        text:`Based on your note "${n.title||'Untitled'}", which statement is most consistent with your material?`,
+        opts:[
+          snippet||'No content available',
+          'This rule applies only when punitive damages are mandatory.',
+          'This concept is irrelevant to exams and should be ignored.',
+          'The note states that no legal analysis is needed.',
+        ],
+        correct:0,
+        exp:`Pulled from your note content: ${snippet||'No content captured yet.'}`,
+      };
+    };
+    const out=[];
+    Object.values(byCourse).forEach(arr=>arr.slice(0,6).forEach((n,idx)=>out.push(makeQ(n,idx))));
+    return out.length?out:PRACTICE_QS;
+  },[notes]);
+  const courses=['All',...Array.from(new Set(dynamicQs.map(q=>q.course)))];
+  const activeQs=cFilter==='All'?dynamicQs:dynamicQs.filter(q=>q.course===cFilter);
+  const q=activeQs[qi]||activeQs[0]||dynamicQs[0];
+  const qCount=activeQs.length||1;
+
+  useEffect(()=>{
+    if(qi>=qCount){setQi(0);setAns(null);}
+  },[qi,qCount,cFilter]);
 
   function pick(i){
-    if(ans!==null)return;
+    if(ans!==null||!q)return;
     setAns(i);
     setScore(s=>({c:s.c+(i===q.correct?1:0),t:s.t+1}));
   }
-  function next(){setAns(null);setQi(p=>(p+1)%PRACTICE_QS.length);}
+  function next(){setAns(null);setQi(p=>(p+1)%qCount);}
   function saveFlashCard(){
+    if(!q)return;
     const key=`lexnotes:${user?.id||'anon'}:flashcards`;
     const cards=readJSON(key,[]);
     const card={id:nextId(),question:q.text,answer:q.opts[q.correct],topic:`${q.course} · ${q.topic}`,savedAt:new Date().toISOString()};
@@ -1559,22 +1719,22 @@ function PracticeView({onToast,user}){
         <div className="prachd">
           <div>
             <div className="prgtitle">Practice Questions</div>
-            <div className="prgsub">AI-generated from your notes · Question {qi+1} of {PRACTICE_QS.length}</div>
+            <div className="prgsub">Generated from your classes and notes · Question {Math.min(qi+1,qCount)} of {qCount}</div>
           </div>
           <div style={{textAlign:'right'}}>
             <div style={{fontSize:11,color:'var(--muted)',fontFamily:'JetBrains Mono,monospace',marginBottom:4}}>
-              {score.t>0?`${Math.round(score.c/score.t*100)}% avg · `:''}{qi+1}/{PRACTICE_QS.length}
+              {score.t>0?`${Math.round(score.c/score.t*100)}% avg · `:''}{Math.min(qi+1,qCount)}/{qCount}
             </div>
-            <div className="prgbar"><div className="prgfill" style={{width:`${((qi+1)/PRACTICE_QS.length)*100}%`}}/></div>
+            <div className="prgbar"><div className="prgfill" style={{width:`${(Math.min(qi+1,qCount)/qCount)*100}%`}}/></div>
           </div>
         </div>
         <div style={{display:'flex',gap:7,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
-          {['All','Contracts','Torts','Crim Law','Mixed'].map(f=>(
+          {courses.map(f=>(
             <span key={f} className={`chip${cFilter===f?' chip-gold':' chip-dim'}`} style={{cursor:'pointer'}} onClick={()=>setCFilter(f)}>{f}</span>
           ))}
           <span style={{marginLeft:'auto',fontSize:11,color:'var(--muted)'}}>Score: {score.c}/{score.t}</span>
         </div>
-        <div className="qcard afu" key={qi}>
+        <div className="qcard afu" key={`${cFilter}-${qi}`}>
           <div className="qtopic">{q.course} · {q.topic} · {q.sub}</div>
           <div className="qtext">{q.text}</div>
           {q.opts.map((o,i)=>{
@@ -1904,6 +2064,25 @@ function DocsView({docs,setDocs,onToast}){
     updateDoc(activeDoc.id,{content:{...(activeDoc.content||{}),items:[...items,{id:nextId(),text:'New item',done:false}]}})
   }
 
+  function exportActiveDoc(){
+    if(!activeDoc){onToast('No document open');return;}
+    const safe=(activeDoc.name||'document').replace(/[^\w\- ]+/g,'');
+    if(activeDoc.type==='docx'){
+      const html=(activeDoc.content&&activeDoc.content.html)||'';
+      const tmp=document.createElement('div');tmp.innerHTML=html;
+      downloadFile(`${safe}.txt`,tmp.innerText||'');
+    }else if(activeDoc.type==='xlsx'){
+      const rows=(activeDoc.content&&activeDoc.content.rows)||[];
+      const csv=rows.map(r=>r.map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+      downloadFile(`${safe}.csv`,csv,'text/csv');
+    }else{
+      const items=(activeDoc.content&&activeDoc.content.items)||[];
+      const text=items.map((x,i)=>`${i+1}. [${x.done?'x':' '}] ${x.text}`).join('\n');
+      downloadFile(`${safe}.txt`,text);
+    }
+    onToast('Document exported');
+  }
+
   return(
     <div className="view active docs-layout afu" style={{flexDirection:'row'}}>
       <div className="course-panel" style={{width:panCol?0:'206px',borderRight:panCol?'none':''}}>
@@ -1939,6 +2118,7 @@ function DocsView({docs,setDocs,onToast}){
         <div className="docs-tb">
           <span style={{fontSize:13,fontWeight:600}}>{activeDoc?activeDoc.name:(cF==='all'&&tF==='all'?'All Documents':cF!=='all'?COURSES.find(c=>c.id===cF)?.label:tF)}</span>
           <div style={{flex:1}}/>
+          {activeDoc&&<button className="btn btn-ghost btn-sm" onClick={exportActiveDoc}>⤓ Export</button>}
           {activeDoc&&<button className="btn btn-ghost btn-sm" onClick={closeDoc}>← Back to Library</button>}
           <button className="btn btn-primary btn-sm" onClick={()=>setModal(true)}>+ New Document</button>
         </div>
@@ -2088,10 +2268,11 @@ function DocsView({docs,setDocs,onToast}){
 }
 
 /* ═══════════════ TEXTBOOKS VIEW ════════════════ */
-function TextbooksView({onToast,user}){
+function TextbooksView({onToast,user,notes,setNotes}){
   const BOOKS_KEY=`lexnotes:${user?.id||'anon'}:textbooks`;
   const ANNS_KEY=`lexnotes:${user?.id||'anon'}:annotations`;
   const ACTIVE_BOOK_KEY=`lexnotes:${user?.id||'anon'}:active-book`;
+  const NOTES_META_KEY=`lexnotes:${user?.id||'anon'}:notes-meta`;
   const [libCol,setLibCol]=useState(false);
   const [annOpen,setAnnOpen]=useState(true);
   const [tocOpen,setTocOpen]=useState(false);
@@ -2103,12 +2284,17 @@ function TextbooksView({onToast,user}){
   const [anns,setAnns]=useState([]);
   const [selPopup,setSelPopup]=useState({show:false,x:0,y:0});
   const [books,setBooks]=useState([]);
+  const [meta,setMeta]=useState({extraCourses:[],extraTopics:{},extraSubsections:{}});
   const savedRange=useRef(null);
   const paneRef=useRef();
   const fileRef=useRef();
 
   const TOC=['Ch. 1 — Introduction to Torts','Ch. 2 — Intentional Torts','Ch. 3 — Negligence','  § 3.1 The Reasonable Person','  § 3.2 The Hand Formula','  § 3.3 Custom as Evidence','Ch. 4 — Causation','Ch. 5 — Proximate Cause','Ch. 6 — Damages'];
   const activeBookObj=books.find(b=>b.id===activeBook)||books[0]||null;
+  const allCourses=[...COURSES,...(Array.isArray(meta.extraCourses)?meta.extraCourses:[])];
+  const sectionKey=(courseId,topicId)=>`${courseId||'none'}::${topicId||'none'}`;
+  const activeTopics=[...(allCourses.find(c=>c.id===activeBookObj?.course)?.topics||[]),...((meta.extraTopics&&meta.extraTopics[activeBookObj?.course])||[])];
+  const activeSubsections=((meta.extraSubsections&&meta.extraSubsections[sectionKey(activeBookObj?.course,activeBookObj?.topic)])||[]);
 
   useEffect(()=>{
     const savedBooks=readJSON(BOOKS_KEY,null);
@@ -2117,11 +2303,15 @@ function TextbooksView({onToast,user}){
     if(Array.isArray(savedBooks)&&savedBooks.length)setBooks(savedBooks);
     if(Array.isArray(savedAnns)&&savedAnns.length)setAnns(savedAnns);
     if(savedActive)setActiveBook(savedActive);
-  },[BOOKS_KEY,ANNS_KEY,ACTIVE_BOOK_KEY]);
+    setMeta(readJSON(NOTES_META_KEY,{extraCourses:[],extraTopics:{},extraSubsections:{}}));
+  },[BOOKS_KEY,ANNS_KEY,ACTIVE_BOOK_KEY,NOTES_META_KEY]);
 
   useDebouncedEffect(()=>{writeJSON(BOOKS_KEY,books);},[books,BOOKS_KEY],280);
   useDebouncedEffect(()=>{writeJSON(ANNS_KEY,anns);},[anns,ANNS_KEY],280);
   useDebouncedEffect(()=>{try{localStorage.setItem(ACTIVE_BOOK_KEY,activeBook);}catch{}},[activeBook,ACTIVE_BOOK_KEY],180);
+  useEffect(()=>{
+    setMeta(readJSON(NOTES_META_KEY,{extraCourses:[],extraTopics:{},extraSubsections:{}}));
+  },[notes,NOTES_META_KEY]);
 
   useEffect(()=>{
     function onUp(e){
@@ -2167,10 +2357,47 @@ function TextbooksView({onToast,user}){
         snippet=(await f.text()).slice(0,2200);
       }
     }catch{}
-    const nb={id:String(nextId()),title:name,sub:'Uploaded',icon:icons[i],bg:bgs[i],prog:0,fileName:f.name,fileType:f.type||'unknown',fileSize:f.size,uploadedAt:new Date().toISOString(),snippet};
+    const nb={id:String(nextId()),title:name,sub:'Uploaded',icon:icons[i],bg:bgs[i],prog:0,fileName:f.name,fileType:f.type||'unknown',fileSize:f.size,uploadedAt:new Date().toISOString(),snippet,course:'',topic:'',subsection:''};
     setBooks(p=>[nb,...p]);setActiveBook(nb.id);
     onToast(`📚 "${name}" uploaded and saved`);
     e.target.value='';
+  }
+
+  function patchActiveBook(patch){
+    if(!activeBookObj)return;
+    setBooks(p=>p.map(b=>b.id===activeBookObj.id?{...b,...patch}:b));
+  }
+
+  function createReadingNote(text,title){
+    if(!setNotes){onToast('Notes storage unavailable');return;}
+    const clean=(text||'').trim();
+    if(!clean){onToast('Nothing to save');return;}
+    const fallbackCourse=allCourses[0]?.id||'';
+    const fallbackTopic=(allCourses.find(c=>c.id===activeBookObj?.course||fallbackCourse)?.topics||[])[0]?.id||'general';
+    const note={
+      id:nextId(),
+      course:activeBookObj?.course||fallbackCourse,
+      topic:activeBookObj?.topic||fallbackTopic,
+      subsection:activeBookObj?.subsection||'',
+      type:'reading',
+      title:title||`${activeBookObj?.title||'Textbook'} Reading Note`,
+      preview:clean.slice(0,90),
+      date:'Just now',
+      hasAudio:false,
+      hasMerge:false,
+      content:clean,
+      contentHtml:'',
+      bf:{facts:'',issue:'',rule:'',reasoning:'',notes:''},
+    };
+    setNotes(p=>[note,...p]);
+    onToast('Reading note created');
+  }
+
+  function exportAnnotations(){
+    const body=anns.map((a,i)=>`${i+1}. ${a.quote}\n${a.note||''}\nPage ${a.page} · ${a.color}`).join('\n\n');
+    downloadFile(`${(activeBookObj?.title||'textbook').replace(/[^\w\- ]+/g,'')}-annotations.txt`,body||'No annotations');
+    createReadingNote(body||'No annotations',`${activeBookObj?.title||'Textbook'} - Annotations`);
+    onToast('Annotations exported and added to notes');
   }
 
   return(
@@ -2237,8 +2464,26 @@ function TextbooksView({onToast,user}){
             <button className={`tbt${tocOpen?' on':''}`} onClick={()=>setTocOpen(v=>!v)} title="Table of Contents">≡</button>
             <button className={`tbt${annOpen?' on':''}`} onClick={()=>setAnnOpen(v=>!v)} title="Annotations">📝</button>
           </div>
+          <div className="tbtg">
+            <select className="sel" style={{padding:'4px 8px',minWidth:130}} value={activeBookObj?.course||''} onChange={e=>patchActiveBook({course:e.target.value,topic:'',subsection:''})}>
+              <option value="">Class</option>
+              {allCourses.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}
+            </select>
+            <select className="sel" style={{padding:'4px 8px',minWidth:120}} value={activeBookObj?.topic||''} onChange={e=>patchActiveBook({topic:e.target.value,subsection:''})}>
+              <option value="">Topic</option>
+              {activeTopics.map(t=><option key={t.id} value={t.id}>{t.label}</option>)}
+            </select>
+            <select className="sel" style={{padding:'4px 8px',minWidth:130}} value={activeBookObj?.subsection||''} onChange={e=>patchActiveBook({subsection:e.target.value})}>
+              <option value="">Section</option>
+              {activeSubsections.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}
+            </select>
+          </div>
           <div style={{flex:1}}/>
-          <button className="btn btn-ghost btn-sm" onClick={()=>onToast('✎ Selection copied to Notes')}>→ Copy to Notes</button>
+          <button className="btn btn-ghost btn-sm" onClick={()=>{
+            const selected=window.getSelection?.().toString()||'';
+            if(!selected.trim()){onToast('Select text first');return;}
+            createReadingNote(selected.trim(),`${activeBookObj?.title||'Textbook'} - Selection`);
+          }}>→ Copy to Notes</button>
         </div>
 
         <div style={{display:'flex',flex:1,overflow:'hidden'}}>
@@ -2296,7 +2541,7 @@ function TextbooksView({onToast,user}){
               ))}
             </div>
             <div style={{padding:9,borderTop:'1px solid var(--border)',flexShrink:0}}>
-              <button className="btn btn-ghost btn-sm" style={{width:'100%'}} onClick={()=>onToast('✎ All annotations exported to Notes')}>→ Export All to Notes</button>
+              <button className="btn btn-ghost btn-sm" style={{width:'100%'}} onClick={exportAnnotations}>→ Export All to Notes</button>
             </div>
           </div>
         </div>
@@ -2311,7 +2556,11 @@ function TextbooksView({onToast,user}){
             <div key={c} className="selhl" style={{background:HL[c],border:'1px solid transparent'}} onClick={()=>doHighlight(c)}/>
           ))}
           <div className="seldiv"/>
-          <button className="selact" onClick={()=>{onToast('Copied to Notes');setSelPopup(p=>({...p,show:false}));}}>→ Note</button>
+          <button className="selact" onClick={()=>{
+            const selected=window.getSelection()?.toString()||'';
+            createReadingNote(selected,`${activeBookObj?.title||'Textbook'} - Selection`);
+            setSelPopup(p=>({...p,show:false}));
+          }}>→ Note</button>
           <button
             className="selact"
             onClick={()=>{
@@ -2736,10 +2985,10 @@ function App(){
           {!showAuth&&view==='dashboard'    && <Dashboard notes={notes} onToast={showToast} onNav={setView} user={user}/>}
           {!showAuth&&view==='notes'        && <NotesView notes={notes} setNotes={setNotes} onToast={showToast} user={user}/>}
           {!showAuth&&view==='outline'      && <OutlineView onToast={showToast} user={user} notes={notes} docs={docs}/>}
-          {!showAuth&&view==='practice'     && <PracticeView onToast={showToast} user={user}/>}
+          {!showAuth&&view==='practice'     && <PracticeView onToast={showToast} user={user} notes={notes}/>}
           {!showAuth&&view==='calendar'     && <CalendarView onToast={showToast} user={user} onNav={setView}/>}
           {!showAuth&&view==='docs'         && <DocsView docs={docs} setDocs={setDocs} onToast={showToast}/>}
-          {!showAuth&&view==='textbooks'    && <TextbooksView onToast={showToast} user={user}/>}
+          {!showAuth&&view==='textbooks'    && <TextbooksView onToast={showToast} user={user} notes={notes} setNotes={setNotes}/>}
           {!showAuth&&view==='integrations' && <IntegrationsView onToast={showToast} user={user}/>}
           {!showAuth&&view==='settings'     && <SettingsView onToast={showToast} user={user} onUpdateUser={updateUser}/>}
           {!showAuth&&view==='apis'         && <APIView/>}
