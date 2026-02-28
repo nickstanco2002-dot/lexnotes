@@ -2407,7 +2407,7 @@ function App(){
         <div className="content">
           {showAuth && <AuthScreen
             existingUser={existingUser}
-            onSwitch={()=>{setExistingUser(null);try{localStorage.removeItem(SESSION_KEY);}catch{}}
+            onSwitch={()=>{setExistingUser(null);try{localStorage.removeItem(SESSION_KEY);}catch{}}}
             onAuth={u=>{
               writeJSON(SESSION_KEY,{id:u.id});
               setUser(u);
