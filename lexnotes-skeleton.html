@@ -798,6 +798,7 @@ function NotesView({notes,setNotes,onToast}){
   const [showNew,setShowNew]=useState(false);
   const [newType,setNewType]=useState('brief');
   const [newTitle,setNewTitle]=useState('');
+  const [briefDraft,setBriefDraft]=useState(null);
   const recRef=useRef();
 
   useEffect(()=>{
@@ -820,6 +821,27 @@ function NotesView({notes,setNotes,onToast}){
 
   const TYPE_COLOR={brief:'var(--blue)',class:'var(--red)',auto:'var(--accent)',reading:'var(--green)'};
   const TYPE_LBL={brief:'📋 Case Brief',class:'✎ Class Notes',auto:'🎙 Auto Notes',reading:'📖 Reading Notes'};
+  const BRIEF_FIELDS=[
+    {label:'Facts',key:'facts',rows:5},
+    {label:'Issue',key:'issue',rows:3},
+    {label:'Rule / Holding',key:'rule',rows:3},
+    {label:'Reasoning',key:'reasoning',rows:5},
+    {label:'Significance / My Notes',key:'notes',rows:3},
+  ];
+
+  useEffect(()=>{
+    if(activeNote?.type==='brief'){
+      setBriefDraft({
+        facts:activeNote.bf?.facts||'',
+        issue:activeNote.bf?.issue||'',
+        rule:activeNote.bf?.rule||'',
+        reasoning:activeNote.bf?.reasoning||'',
+        notes:activeNote.bf?.notes||'',
+      });
+    }else{
+      setBriefDraft(null);
+    }
+  },[activeId,activeNote?.type]);
 
   function createNote(){
     if(!newTitle.trim()){onToast('Enter a title');return;}
@@ -839,10 +861,15 @@ function NotesView({notes,setNotes,onToast}){
     {ts:'39:15',text:'Transition to proximate cause — "But-for causation isn\'t enough."'},
   ];
 
+  function saveBriefDraft(){
+    if(!activeNote||activeNote.type!=='brief'||!briefDraft)return;
+    setNotes(p=>p.map(n=>n.id===activeId?{...n,bf:{...n.bf,...briefDraft}}:n));
+  }
+
   return(
     <div className="view active notes-layout">
       {/* ── Course Nav ── */}
-      <div className="course-panel" style={{width:navCol?0:'206px',borderRight:navCol?'none':''}}>
+      <div className="course-panel" style={{width:navCol?0:'206px',borderRight:navCol?'none':'',overflow:navCol?'visible':'hidden'}}>
         <PanelCollapseBtn collapsed={navCol} onToggle={()=>setNavCol(v=>!v)}/>
         <div className="phead">
           <span style={{fontSize:11,fontWeight:600}}>My Courses</span>
@@ -879,7 +906,7 @@ function NotesView({notes,setNotes,onToast}){
       </div>
 
       {/* ── Note List ── */}
-      <div className="list-panel" style={{width:listCol?0:'256px',borderRight:listCol?'none':''}}>
+      <div className="list-panel" style={{width:listCol?0:'256px',borderRight:listCol?'none':'',overflow:listCol?'visible':'hidden'}}>
         <PanelCollapseBtn collapsed={listCol} onToggle={()=>setListCol(v=>!v)}/>
         <div className="phead">
           <div>
@@ -936,6 +963,7 @@ function NotesView({notes,setNotes,onToast}){
               <button className="btn btn-ghost btn-sm" onClick={()=>setAiOpen(v=>!v)}>⚡ AI</button>
               <button className="btn btn-ghost btn-sm" onClick={()=>onToast('Exporting as PDF…')}>⤓ Export</button>
               <button className="btn btn-ghost btn-sm" onClick={()=>onToast('Share link copied!')}>↗ Share</button>
+              {(navCol||listCol)&&<button className="btn btn-ghost btn-sm" onClick={()=>{setNavCol(false);setListCol(false);}}>›› Show panels</button>}
             </div>
 
             <div className="earea">
@@ -950,12 +978,17 @@ function NotesView({notes,setNotes,onToast}){
                       <span>{activeNote.date}</span>
                     </div>
                     {activeNote.type==='brief'?(
-                      ['Facts','Issue','Rule / Holding','Reasoning','Significance / My Notes'].map(f=>(
-                        <div className="bsec" key={f}>
-                          <label className="blbl">{f}</label>
-                          <textarea className="bta" rows={f==='Facts'||f==='Reasoning'?5:3}
-                            defaultValue={activeNote.bf?.[f.toLowerCase().split(' ')[0]]||''}
-                            placeholder={`Enter ${f.toLowerCase()}…`}/>
+                      BRIEF_FIELDS.map(f=>(
+                        <div className="bsec" key={f.key}>
+                          <label className="blbl">{f.label}</label>
+                          <textarea
+                            className="bta"
+                            rows={f.rows}
+                            value={briefDraft?.[f.key]||''}
+                            onChange={e=>setBriefDraft(p=>({...p,[f.key]:e.target.value}))}
+                            onBlur={saveBriefDraft}
+                            placeholder={`Enter ${f.label.toLowerCase()}…`}
+                          />
                         </div>
                       ))
                     ):(
@@ -1255,7 +1288,7 @@ function CalendarView({onToast}){
           {cells.map((c,i)=>(
             <div key={i} className={`calcel${c.other?' other':''}${c.today?' today':''}`} onClick={()=>onToast(`Selected Feb ${c.d}`)}>
               <div className="calnum">{c.d}</div>
-              {(CAL_EVENTS[c.d]||[]).map((ev,j)=>(
+              {(!c.other?(CAL_EVENTS[c.d]||[]):[]).map((ev,j)=>(
                 <div key={j} className="calev" style={{background:ev.c,color:ev.tc}}>{ev.l}</div>
               ))}
             </div>
@@ -1434,7 +1467,7 @@ function TextbooksView({onToast}){
     setSelPopup(p=>({...p,show:false}));savedRange.current=null;
   }
   function addAnn(quote,color){
-    setAnns(p=>[{id:Date.now(),quote:`"${quote}${quote.length>=80?'…':'"'}`,note:'',color,page},  ...p]);
+    setAnns(p=>[{id:Date.now(),quote:`"${quote}${quote.length>=80?'…':''}"`,note:'',color,page},...p]);
     if(!annOpen)setAnnOpen(true);
   }
   function handleUpload(e){
@@ -1569,7 +1602,22 @@ function TextbooksView({onToast}){
           ))}
           <div className="seldiv"/>
           <button className="selact" onClick={()=>{onToast('Copied to Notes');setSelPopup(p=>({...p,show:false}));}}>→ Note</button>
-          <button className="selact" onClick={()=>{navigator.clipboard.writeText(window.getSelection()?.toString()||'');onToast('Copied to clipboard');setSelPopup(p=>({...p,show:false}));}}>Copy</button>
+          <button
+            className="selact"
+            onClick={()=>{
+              const selected=window.getSelection()?.toString()||'';
+              if(navigator.clipboard?.writeText){
+                navigator.clipboard.writeText(selected)
+                  .then(()=>onToast('Copied to clipboard'))
+                  .catch(()=>onToast('Clipboard blocked by browser'));
+              }else{
+                onToast('Clipboard API unavailable');
+              }
+              setSelPopup(p=>({...p,show:false}));
+            }}
+          >
+            Copy
+          </button>
         </div>
       )}
     </div>
