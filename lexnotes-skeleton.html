@@ -138,7 +138,7 @@ textarea{resize:none;}
 .chip-dim{background:var(--surface2);color:var(--muted);border:1px solid var(--border);}
 
 /* ═══ MODAL ═══════════════════════════════════════════ */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:800;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(5px);animation:fade .15s ease;}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:800;display:flex;align-items:center;justify-content:center;animation:fade .15s ease;}
 .modal{background:var(--surface);border:1px solid var(--border2);border-radius:12px;width:100%;max-height:88vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,.7);}
 .modal-sm{max-width:420px;}
 .modal-md{max-width:540px;}
@@ -411,6 +411,10 @@ textarea{resize:none;}
 
 /* View-level horizontal layouts must override .view { flex-direction: column; } */
 .notes-layout,.docs-layout,.tbview{flex-direction:row;}
+
+@supports ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))){
+  .overlay{backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);}
+}
 </style>
 </head>
 <body>
@@ -437,6 +441,14 @@ function writeJSON(key,value){
 
 function esc(s=''){
   return String(s).replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+}
+
+function downloadFile(name,content,type='text/plain'){
+  const blob=new Blob([content],{type});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),300);
 }
 
 /* ═══════════════ DATA ═══════════════════════════════ */
@@ -557,11 +569,17 @@ const API_DATA=[
 /* ═══════════════ HOOKS ════════════════════════════ */
 function useToast(){
   const [ts,setTs]=useState([]);
+  const timers=useRef(new Map());
   const show=useCallback((msg)=>{
     const id=nextId();
-    setTs(p=>[...p,{id,msg}]);
-    setTimeout(()=>setTs(p=>p.filter(t=>t.id!==id)),2600);
+    setTs(p=>[...p.slice(-2),{id,msg}]);
+    const timer=setTimeout(()=>{
+      setTs(p=>p.filter(t=>t.id!==id));
+      timers.current.delete(id);
+    },2200);
+    timers.current.set(id,timer);
   },[]);
+  useEffect(()=>()=>{timers.current.forEach(t=>clearTimeout(t));timers.current.clear();},[]);
   return [ts,show];
 }
 
@@ -904,6 +922,8 @@ function Dashboard({notes,onToast,onNav,user}){
 function NotesView({notes,setNotes,onToast}){
   const [activeCourse,setActiveCourse]=useState('torts');
   const [activeTopic,setActiveTopic]=useState('negligence');
+  const [extraCourses,setExtraCourses]=useState([]);
+  const [extraTopics,setExtraTopics]=useState({});
   const [activeId,setActiveId]=useState(1);
   const [openCourses,setOpenCourses]=useState({torts:true});
   const [navCol,setNavCol]=useState(false);
@@ -921,6 +941,7 @@ function NotesView({notes,setNotes,onToast}){
   const [newType,setNewType]=useState('brief');
   const [newTitle,setNewTitle]=useState('');
   const [briefDraft,setBriefDraft]=useState(null);
+  const audioRef=useRef();
   const recRef=useRef();
 
   useEffect(()=>{
@@ -930,8 +951,9 @@ function NotesView({notes,setNotes,onToast}){
   },[recording]);
 
   const fmt=s=>`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+  const allCourses=[...COURSES,...extraCourses];
   const activeNote=notes.find(n=>n.id===activeId);
-  const courseObj=COURSES.find(c=>c.id===activeCourse);
+  const courseObj=allCourses.find(c=>c.id===activeCourse);
   const topicObj=courseObj?.topics.find(t=>t.id===activeTopic);
   const filtered=notes.filter(n=>{
     if(n.course!==activeCourse||n.topic!==activeTopic)return false;
@@ -972,6 +994,59 @@ function NotesView({notes,setNotes,onToast}){
     onToast('✎ Note created');
   }
 
+  function addCourse(){
+    const label=(prompt('Course name (e.g., Evidence)')||'').trim();
+    if(!label)return;
+    const id=label.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')||`course-${nextId()}`;
+    if(allCourses.some(c=>c.id===id)){onToast('Course already exists');return;}
+    const palette=['#d95f5f','#5283e0','#4aab78','#c9a84c','#8f67d8','#f08f42'];
+    const color=palette[(allCourses.length+1)%palette.length];
+    const c={id,label,color,topics:[]};
+    setExtraCourses(p=>[...p,c]);
+    setActiveCourse(id);
+    setActiveTopic('');
+    onToast(`Course "${label}" added`);
+  }
+
+  function addTopic(courseId){
+    const label=(prompt('Topic name (e.g., Hearsay)')||'').trim();
+    if(!label)return;
+    const id=label.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')||`topic-${nextId()}`;
+    const existing=(allCourses.find(c=>c.id===courseId)?.topics||[]).some(t=>t.id===id);
+    if(existing){onToast('Topic already exists');return;}
+    setExtraTopics(p=>({...p,[courseId]:[...(p[courseId]||[]),{id,label,n:0}]}));
+    setActiveCourse(courseId);
+    setActiveTopic(id);
+    onToast(`Topic "${label}" added`);
+  }
+
+  function exportNote(){
+    if(!activeNote){onToast('No note selected');return;}
+    const body=activeNote.type==='brief'
+      ?`Facts:\n${activeNote.bf?.facts||''}\n\nIssue:\n${activeNote.bf?.issue||''}\n\nRule:\n${activeNote.bf?.rule||''}\n\nReasoning:\n${activeNote.bf?.reasoning||''}\n\nNotes:\n${activeNote.bf?.notes||''}`
+      :(activeNote.content||'');
+    downloadFile(`${(activeNote.title||'note').replace(/[^\w\- ]+/g,'')}.txt`,`${activeNote.title}\n\n${body}`);
+    onToast('Note exported');
+  }
+
+  async function shareNote(){
+    if(!activeNote){onToast('No note selected');return;}
+    const share=`LexNotes://${activeNote.id}:${activeNote.title}`;
+    try{await navigator.clipboard.writeText(share);onToast('Share link copied');}
+    catch{onToast('Share string ready: '+share);}
+  }
+
+  async function handleAudioUpload(e){
+    const f=e.target.files?.[0];
+    if(!f)return;
+    const title=`Audio Note — ${f.name.replace(/\.[^.]+$/,'')}`;
+    const content=`[Uploaded audio]\nFile: ${f.name}\nSize: ${(f.size/1024/1024).toFixed(2)} MB\nImported: ${new Date().toLocaleString()}\n\nTranscript processing ready via /api/transcribe.`;
+    const n={id:nextId(),course:activeCourse,topic:activeTopic||courseObj?.topics?.[0]?.id||'general',type:'auto',title,preview:'Uploaded audio ready for transcription',date:'Just now',hasAudio:true,hasMerge:true,content,bf:{facts:'',issue:'',rule:'',reasoning:'',notes:''}};
+    setNotes(p=>[n,...p]);setActiveId(n.id);
+    onToast('Audio file attached as auto note');
+    e.target.value='';
+  }
+
   const TIMESTAMPS=[{ts:'02:14',label:'Reasonable person'},{ts:'05:30',label:'Vaughan v. Menlove'},{ts:'11:20',label:'Hand Formula'},{ts:'18:45',label:'Carroll Towing'},{ts:'31:00',label:'Student Q: B = econ?'},{ts:'39:15',label:'Proximate cause'}];
   const AUTOBLOCKS=[
     {ts:'00:00',text:'Prof. Chen began discussing the duty element — "The first question you always ask is whether the defendant owed a duty to this plaintiff."'},
@@ -995,14 +1070,16 @@ function NotesView({notes,setNotes,onToast}){
         <PanelCollapseBtn collapsed={navCol} onToggle={()=>setNavCol(v=>!v)}/>
         <div className="phead">
           <span style={{fontSize:11,fontWeight:600}}>My Courses</span>
-          <button className="btn btn-primary btn-sm" onClick={()=>onToast('Course management in settings')}>+ Course</button>
+          <button className="btn btn-primary btn-sm" onClick={addCourse}>+ Course</button>
         </div>
         <div style={{padding:'7px 10px',borderBottom:'1px solid var(--border)'}}>
           <input className="inp" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search notes…" style={{fontSize:11.5}}/>
         </div>
         <div style={{flex:1,overflowY:'auto'}}>
-          {COURSES.map(course=>(
+          {allCourses.map(course=>(
             <div key={course.id}>
+              {(() => { const topics=[...(course.topics||[]),...(extraTopics[course.id]||[])];
+                return (
               <div className={`cgroup-hd${activeCourse===course.id?' on':''}`}
                 onClick={()=>{setActiveCourse(course.id);setOpenCourses(p=>({...p,[course.id]:!p[course.id]}));}}>
                 <div style={{display:'flex',alignItems:'center',gap:7}}>
@@ -1014,14 +1091,15 @@ function NotesView({notes,setNotes,onToast}){
                   <span style={{fontSize:8,color:'var(--dim)'}}>{openCourses[course.id]?'▾':'▸'}</span>
                 </div>
               </div>
-              {openCourses[course.id]&&course.topics.map(t=>(
+              {openCourses[course.id]&&topics.map(t=>(
                 <div key={t.id} className={`topic-row${activeCourse===course.id&&activeTopic===t.id?' on':''}`}
                   onClick={()=>{setActiveCourse(course.id);setActiveTopic(t.id);setTypeFilter('all');}}>
                   <span style={{fontSize:8,marginRight:5,opacity:.4}}>⬡</span>{t.label}
                   <span style={{marginLeft:'auto',fontSize:9,fontFamily:'JetBrains Mono,monospace',color:'var(--dim)'}}>{notes.filter(n=>n.course===course.id&&n.topic===t.id).length||t.n}</span>
                 </div>
               ))}
-              {openCourses[course.id]&&<div style={{padding:'4px 13px 4px 26px',fontSize:11,color:'var(--dim)',cursor:'pointer'}} onClick={()=>onToast('Add topic coming in v1.1')}>+ Add Topic</div>}
+              {openCourses[course.id]&&<div style={{padding:'4px 13px 4px 26px',fontSize:11,color:'var(--dim)',cursor:'pointer'}} onClick={()=>addTopic(course.id)}>+ Add Topic</div>}
+              )})()}
             </div>
           ))}
         </div>
@@ -1083,8 +1161,8 @@ function NotesView({notes,setNotes,onToast}){
               <div style={{flex:1}}/>
               {activeNote?.hasMerge&&<button className="btn btn-ghost btn-sm" onClick={()=>{setMergeMode(true);setMerged(false);}}>⇌ Merge w/ Auto Notes</button>}
               <button className="btn btn-ghost btn-sm" onClick={()=>setAiOpen(v=>!v)}>⚡ AI</button>
-              <button className="btn btn-ghost btn-sm" onClick={()=>onToast('Exporting as PDF…')}>⤓ Export</button>
-              <button className="btn btn-ghost btn-sm" onClick={()=>onToast('Share link copied!')}>↗ Share</button>
+              <button className="btn btn-ghost btn-sm" onClick={exportNote}>⤓ Export</button>
+              <button className="btn btn-ghost btn-sm" onClick={shareNote}>↗ Share</button>
               {(navCol||listCol)&&<button className="btn btn-ghost btn-sm" onClick={()=>{setNavCol(false);setListCol(false);}}>›› Show panels</button>}
             </div>
 
@@ -1170,7 +1248,8 @@ function NotesView({notes,setNotes,onToast}){
               <button className={`recbtn${recording?' live':''}`} onClick={()=>setRecording(v=>!v)}>{recording?'⏹':'⏺'}</button>
               <div className="tstxt">{recording?`Recording lecture… ${fmt(recSecs)}`:'Click ⏺ to record · AI will auto-transcribe with timestamps'}</div>
               {recording&&<span className="tstime">{fmt(recSecs)}</span>}
-              {!recording&&<button className="btn btn-ghost btn-sm" onClick={()=>onToast('Upload audio file for AI transcription')}>↑ Upload Audio</button>}
+              {!recording&&<button className="btn btn-ghost btn-sm" onClick={()=>audioRef.current?.click()}>↑ Upload Audio</button>}
+              <input ref={audioRef} type="file" accept="audio/*" style={{display:'none'}} onChange={handleAudioUpload}/>
             </div>
           </>
         ):(
@@ -1260,7 +1339,38 @@ function NotesView({notes,setNotes,onToast}){
 /* ═══════════════ OUTLINE VIEW ══════════════════ */
 function OutlineView({onToast}){
   const [tab,setTab]=useState('contracts');
+  const [updatedAt,setUpdatedAt]=useState('Feb 13, 2025');
   const tabs=['contracts','torts','crim','civpro','conlaw'];
+  const outlineText=`Contracts I — Master Outline
+
+I. Formation
+A. Offer
+B. Acceptance
+C. Consideration
+
+II. Breach & Remedies
+A. Material vs Minor Breach
+B. Expectation Damages
+C. Consequential Damages
+D. Reliance & Restitution
+
+III. Defenses
+A. Fraud/Duress
+B. Mistake
+C. Impossibility/Frustration`;
+
+  function exportOutline(ext){
+    const safeCourse=(COURSES.find(c=>c.id===tab)?.label||tab).replace(/\s+/g,'-').toLowerCase();
+    const name=`${safeCourse}-outline.${ext}`;
+    downloadFile(name,outlineText,ext==='docx'?'application/vnd.openxmlformats-officedocument.wordprocessingml.document':'text/plain');
+    onToast(`Exported ${name}`);
+  }
+
+  function regenerate(){
+    setUpdatedAt(new Date().toLocaleString());
+    onToast('Outline regenerated from your latest notes');
+  }
+
   return(
     <div className="view active afu" style={{flexDirection:'column'}}>
       <div style={{padding:'10px 20px',borderBottom:'1px solid var(--border)',background:'var(--surface)',display:'flex',alignItems:'center',gap:8,flexShrink:0,flexWrap:'wrap'}}>
@@ -1271,15 +1381,15 @@ function OutlineView({onToast}){
             </button>
           ))}
         </div>
-        <button className="btn btn-ghost btn-sm" onClick={()=>onToast('Exporting as PDF…')}>⤓ PDF</button>
-        <button className="btn btn-ghost btn-sm" onClick={()=>onToast('Exporting as DOCX…')}>⤓ DOCX</button>
-        <button className="btn btn-primary btn-sm" onClick={()=>onToast('Regenerating from your notes…')}>⚡ Regenerate</button>
+        <button className="btn btn-ghost btn-sm" onClick={()=>exportOutline('pdf')}>⤓ PDF</button>
+        <button className="btn btn-ghost btn-sm" onClick={()=>exportOutline('docx')}>⤓ DOCX</button>
+        <button className="btn btn-primary btn-sm" onClick={regenerate}>⚡ Regenerate</button>
       </div>
       <div style={{flex:1,overflowY:'auto'}}>
         <div className="outline-doc">
           <div className="otag">Contracts · AI Auto-Outline</div>
           <div className="otitle">Contracts I — Master Outline</div>
-          <div className="ometa">38 cases · 18 notes · Prof. Martinez · Updated Feb 13, 2025 · ⚡ AI-generated from your notes</div>
+          <div className="ometa">38 cases · 18 notes · Prof. Martinez · Updated {updatedAt} · ⚡ AI-generated from your notes</div>
           <div className="osec">
             <div className="oh1"><span className="oh1-n">I.</span> Formation of a Contract</div>
             <div className="oh2">A. Offer</div>
@@ -1334,6 +1444,13 @@ function PracticeView({onToast}){
     setScore(s=>({c:s.c+(i===q.correct?1:0),t:s.t+1}));
   }
   function next(){setAns(null);setQi(p=>(p+1)%PRACTICE_QS.length);}
+  function saveFlashCard(){
+    const key='lexnotes:flashcards';
+    const cards=readJSON(key,[]);
+    const card={id:nextId(),question:q.text,answer:q.opts[q.correct],topic:`${q.course} · ${q.topic}`,savedAt:new Date().toISOString()};
+    writeJSON(key,[card,...cards].slice(0,300));
+    onToast('Flash card saved');
+  }
 
   return(
     <div className="view active afu" style={{flexDirection:'column'}}>
@@ -1373,7 +1490,7 @@ function PracticeView({onToast}){
         <div style={{display:'flex',gap:9}}>
           <button className="btn btn-ghost btn-sm" onClick={()=>{setAns(null);setQi(p=>Math.max(0,p-1));}}>← Previous</button>
           <button className="btn btn-primary btn-sm" onClick={next}>{ans===null?'Skip →':'Next Question →'}</button>
-          <button className="btn btn-ghost btn-sm" style={{marginLeft:'auto'}} onClick={()=>onToast('Flash card deck created from this question!')}>⊞ Save as Flash Card</button>
+          <button className="btn btn-ghost btn-sm" style={{marginLeft:'auto'}} onClick={saveFlashCard}>⊞ Save as Flash Card</button>
         </div>
       </div>
     </div>
@@ -1382,35 +1499,68 @@ function PracticeView({onToast}){
 
 /* ═══════════════ CALENDAR VIEW ════════════════ */
 function CalendarView({onToast}){
+  const CAL_KEY='lexnotes:calendar-events';
   const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  const cells=[
-    ...Array.from({length:4},(_,i)=>({d:26+i,other:true})),
-    ...Array.from({length:28},(_,i)=>({d:i+1,other:false,today:i+1===13})),
-    ...Array.from({length:3},(_,i)=>({d:i+1,other:true})),
-  ];
+  const [cursor,setCursor]=useState(()=>new Date(2025,1,1));
+  const [customEvents,setCustomEvents]=useState(()=>readJSON(CAL_KEY,{}));
+  useEffect(()=>{writeJSON(CAL_KEY,customEvents);},[customEvents]);
+
+  const year=cursor.getFullYear();
+  const month=cursor.getMonth();
+  const monthName=cursor.toLocaleString('en-US',{month:'long'});
+  const firstDow=new Date(year,month,1).getDay();
+  const daysInMonth=new Date(year,month+1,0).getDate();
+  const prevDays=new Date(year,month,0).getDate();
+  const lead=Array.from({length:firstDow},(_,i)=>({d:prevDays-firstDow+i+1,other:true}));
+  const cur=Array.from({length:daysInMonth},(_,i)=>({d:i+1,other:false,today:(year===2025&&month===1&&i+1===13)}));
+  const cells=[...lead,...cur];
+  while(cells.length%7!==0)cells.push({d:cells.length%7+1,other:true});
+  const key=`${year}-${String(month+1).padStart(2,'0')}`;
+  const monthEvents={...(year===2025&&month===1?CAL_EVENTS:{}),...(customEvents[key]||{})};
+
+  function addEvent(){
+    const day=Number(prompt('Day of month (1-31)',''));
+    if(!day||day<1||day>daysInMonth){onToast('Invalid day');return;}
+    const label=(prompt('Event label','New Event')||'').trim();
+    if(!label)return;
+    const colors=['#5283e0','#d95f5f','#c9a84c','#4aab78','#8f67d8'];
+    const tc=colors[(day+label.length)%colors.length];
+    const c=tc+'33';
+    setCustomEvents(p=>({
+      ...p,
+      [key]:{...(p[key]||{}),[day]:[...((p[key]||{})[day]||[]),{l:label,c,tc}]}
+    }));
+    onToast('Event added');
+  }
+
+  function shiftMonth(delta){
+    const d=new Date(cursor);
+    d.setMonth(d.getMonth()+delta);
+    setCursor(new Date(d.getFullYear(),d.getMonth(),1));
+  }
   return(
     <div className="view active afu" style={{flexDirection:'column'}}>
       <div className="calwrap">
         <div className="calhd">
           <div style={{display:'flex',alignItems:'center',gap:10}}>
-            <button className="btn btn-ghost btn-sm" onClick={()=>onToast('← Previous month')}>◂</button>
-            <div className="calmonth">February 2025</div>
-            <button className="btn btn-ghost btn-sm" onClick={()=>onToast('Next month →')}>▸</button>
+            <button className="btn btn-ghost btn-sm" onClick={()=>shiftMonth(-1)}>◂</button>
+            <div className="calmonth">{monthName} {year}</div>
+            <button className="btn btn-ghost btn-sm" onClick={()=>shiftMonth(1)}>▸</button>
           </div>
           <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
             {[{l:'Class',c:'#5283e0'},{l:'Assignment',c:'#d95f5f'},{l:'Exam',c:'#c9a84c'},{l:'Office Hours',c:'#4aab78'}].map(x=>(
               <span key={x.l} className="chip" style={{background:x.c+'22',color:x.c,border:`1px solid ${x.c}44`}}>● {x.l}</span>
             ))}
             <span style={{fontSize:11,color:'var(--muted)'}}>Synced: Canvas + Google Calendar</span>
-            <button className="btn btn-primary btn-sm" onClick={()=>onToast('Add event modal…')}>+ Event</button>
+            <button className="btn btn-primary btn-sm" onClick={addEvent}>+ Event</button>
           </div>
         </div>
         <div className="calgrid">
           {days.map(d=><div key={d} className="caldh">{d}</div>)}
           {cells.map((c,i)=>(
-            <div key={i} className={`calcel${c.other?' other':''}${c.today?' today':''}`} onClick={()=>onToast(`Selected Feb ${c.d}`)}>
+            <div key={i} className={`calcel${c.other?' other':''}${c.today?' today':''}`} onClick={()=>onToast(`Selected ${monthName} ${c.d}, ${year}`)}>
               <div className="calnum">{c.d}</div>
-              {(!c.other?(CAL_EVENTS[c.d]||[]):[]).map((ev,j)=>(
+              {(!c.other?(monthEvents[c.d]||[]):[]).map((ev,j)=>(
                 <div key={j} className="calev" style={{background:ev.c,color:ev.tc}}>{ev.l}</div>
               ))}
             </div>
@@ -1836,6 +1986,16 @@ function IntegrationsView({onToast,user}){
     setAuthTarget(null);
   }
 
+  useEffect(()=>{
+    function onQuickConnect(){
+      const first=ints.find(i=>!i.connected&&!i.soon);
+      if(first)openConnect(first);
+      else onToast('All available integrations are already connected');
+    }
+    window.addEventListener('lexnotes-connect-app',onQuickConnect);
+    return()=>window.removeEventListener('lexnotes-connect-app',onQuickConnect);
+  },[ints]);
+
   return(
     <div className="view active afu" style={{flexDirection:'column'}}>
       <div className="intwrap">
@@ -1898,12 +2058,29 @@ function IntegrationsView({onToast,user}){
 }
 
 /* ═══════════════ SETTINGS ═══════════════════ */
-function SettingsView({onToast}){
+function SettingsView({onToast,user}){
+  const SETTINGS_KEY=`lexnotes:${user?.id||'anon'}:settings`;
   const [notifs,setNotifs]=useState({email:true,push:true,canvas:true,reminders:false});
   const [aiPrefs,setAiPrefs]=useState({autoSuggest:true,flashCards:true,outlineSync:true,practiceQ:false});
   const [display,setDisplay]=useState({compactMode:false,sidebarMini:false,monoBody:false});
+  const [profile,setProfile]=useState({name:user?.name||'Jordan Davis',school:'Georgetown University Law Center',year:'1L',semester:'Fall 2025'});
   const [settingTab,setSettingTab]=useState('account');
   const settingTabs=[{id:'account',l:'Account'},{id:'notifications',l:'Notifications'},{id:'ai',l:'AI Preferences'},{id:'display',l:'Display'},{id:'billing',l:'Billing'}];
+
+  useEffect(()=>{
+    const saved=readJSON(SETTINGS_KEY,null);
+    if(saved){
+      if(saved.notifs)setNotifs(saved.notifs);
+      if(saved.aiPrefs)setAiPrefs(saved.aiPrefs);
+      if(saved.display)setDisplay(saved.display);
+      if(saved.profile)setProfile(saved.profile);
+    }
+  },[SETTINGS_KEY]);
+
+  useEffect(()=>{
+    writeJSON(SETTINGS_KEY,{notifs,aiPrefs,display,profile});
+  },[notifs,aiPrefs,display,profile,SETTINGS_KEY]);
+
   return(
     <div className="view active afu" style={{flexDirection:'column'}}>
       <div className="setwrap">
@@ -1927,20 +2104,20 @@ function SettingsView({onToast}){
                 <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:16}}>
                   <div style={{width:52,height:52,borderRadius:'50%',background:'linear-gradient(135deg,var(--accent),#7a5c18)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,fontWeight:700,color:'#0b0c0e'}}>JD</div>
                   <div>
-                    <div style={{fontWeight:600}}>Jordan Davis</div>
-                    <div style={{fontSize:11.5,color:'var(--muted)'}}>jordan.davis@lawschool.edu</div>
-                    <button className="btn btn-ghost btn-sm" style={{marginTop:6}} onClick={()=>onToast('Upload photo feature in v1.1')}>Change Photo</button>
+                    <div style={{fontWeight:600}}>{profile.name}</div>
+                    <div style={{fontSize:11.5,color:'var(--muted)'}}>{user?.email||'user@email.com'}</div>
+                    <button className="btn btn-ghost btn-sm" style={{marginTop:6}} onClick={()=>{const n=(prompt('Enter initials for avatar','JD')||'').trim().slice(0,2).toUpperCase();if(n)onToast(`Avatar initials set: ${n}`);}}>Change Photo</button>
                   </div>
                 </div>
               </div>
-              <div className="ff"><label className="lbl">Full Name</label><input className="inp" defaultValue="Jordan Davis"/></div>
-              <div className="ff"><label className="lbl">Law School</label><input className="inp" defaultValue="Georgetown University Law Center"/></div>
+              <div className="ff"><label className="lbl">Full Name</label><input className="inp" value={profile.name} onChange={e=>setProfile(p=>({...p,name:e.target.value}))}/></div>
+              <div className="ff"><label className="lbl">Law School</label><input className="inp" value={profile.school} onChange={e=>setProfile(p=>({...p,school:e.target.value}))}/></div>
               <div className="frow">
                 <div className="ff"><label className="lbl">Year</label>
-                  <select className="sel"><option>1L</option><option>2L</option><option>3L</option><option>LLM</option></select>
+                  <select className="sel" value={profile.year} onChange={e=>setProfile(p=>({...p,year:e.target.value}))}><option>1L</option><option>2L</option><option>3L</option><option>LLM</option></select>
                 </div>
                 <div className="ff"><label className="lbl">Semester</label>
-                  <select className="sel"><option>Fall 2025</option><option>Spring 2025</option></select>
+                  <select className="sel" value={profile.semester} onChange={e=>setProfile(p=>({...p,semester:e.target.value}))}><option>Fall 2025</option><option>Spring 2025</option></select>
                 </div>
               </div>
               <button className="btn btn-primary" style={{width:'100%',padding:9}} onClick={()=>onToast('Profile saved ✓')}>Save Changes</button>
@@ -2094,6 +2271,7 @@ function App(){
     if(view==='notes')showToast('Creating new note…');
     else if(view==='textbooks')showToast('Upload a PDF or ePub to add a textbook');
     else if(view==='calendar')showToast('Add event modal opening…');
+    else if(view==='integrations')window.dispatchEvent(new Event('lexnotes-connect-app'));
     else showToast('Coming in v1.1!');
   }
 
@@ -2136,7 +2314,7 @@ function App(){
           {user&&view==='docs'         && <DocsView docs={docs} setDocs={setDocs} onToast={showToast}/>}
           {user&&view==='textbooks'    && <TextbooksView onToast={showToast} user={user}/>}
           {user&&view==='integrations' && <IntegrationsView onToast={showToast} user={user}/>}
-          {user&&view==='settings'     && <SettingsView onToast={showToast}/>}
+          {user&&view==='settings'     && <SettingsView onToast={showToast} user={user}/>}
           {user&&view==='apis'         && <APIView/>}
         </div>
       </div>
