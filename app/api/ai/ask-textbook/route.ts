@@ -1,35 +1,39 @@
 import { NextResponse } from "next/server";
-import { OpenAI } from "openai";
+import { openai } from "../../../../lib/openai";
+import { hasOpenAIKey, jsonError, OPENAI_MODEL, safeJson } from "../../../../lib/api";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+export const runtime = "nodejs";
+
+type AskBody = {
+  question?: string;
+};
 
 export async function POST(req: Request) {
-  const { question } = await req.json();
+  if (!hasOpenAIKey()) {
+    return jsonError("OPENAI_API_KEY is not configured", 500);
+  }
+
+  const body = await safeJson<AskBody>(req);
+  if (!body?.question?.trim()) {
+    return jsonError("Invalid payload: question is required", 400);
+  }
 
   try {
-    // TODO: Implement textbook search with Supabase embeddings
-    // For MVP, return a helpful response without textbook context
-    
     const completion = await openai.chat.completions.create({
-      model: "gpt-4-turbo-preview",
+      model: OPENAI_MODEL,
       messages: [
-        { 
-          role: "system", 
-          content: "You are a helpful law school study assistant. Provide clear explanations of legal concepts. Full textbook context will be available in the next release." 
+        {
+          role: "system",
+          content:
+            "You are a law-school study assistant. Give direct, accurate explanations with issue-spotting guidance.",
         },
-        { role: "user", content: question },
+        { role: "user", content: body.question },
       ],
-      temperature: 0.7,
+      temperature: 0.5,
     });
 
-    return NextResponse.json({
-      answer: completion.choices[0].message.content,
-    });
+    return NextResponse.json({ answer: completion.choices[0]?.message?.content || "" });
   } catch (error) {
-    console.error('Textbook question error:', error);
-    return NextResponse.json(
-      { error: 'Failed to process question' }, 
-      { status: 500 }
-    );
+    return jsonError("Failed to process question", 500, String(error));
   }
 }

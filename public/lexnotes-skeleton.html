@@ -408,12 +408,18 @@ textarea{resize:none;}
 .toggle-track.on{background:var(--accent);}
 .toggle-thumb{width:16px;height:16px;border-radius:50%;background:white;position:absolute;top:2px;left:2px;transition:left .2s;}
 .toggle-track.on .toggle-thumb{left:18px;}
+
+/* View-level horizontal layouts must override .view { flex-direction: column; } */
+.notes-layout,.docs-layout,.tbview{flex-direction:row;}
 </style>
 </head>
 <body>
 <div id="root"></div>
 <script type="text/babel">
 const {useState,useEffect,useRef,useCallback}=React;
+
+let NEXT_ID=1000;
+const nextId=()=>++NEXT_ID;
 
 /* ═══════════════ DATA ═══════════════════════════════ */
 const COURSES=[
@@ -534,7 +540,7 @@ const API_DATA=[
 function useToast(){
   const [ts,setTs]=useState([]);
   const show=useCallback((msg)=>{
-    const id=Date.now();
+    const id=nextId();
     setTs(p=>[...p,{id,msg}]);
     setTimeout(()=>setTs(p=>p.filter(t=>t.id!==id)),2600);
   },[]);
@@ -845,7 +851,7 @@ function NotesView({notes,setNotes,onToast}){
 
   function createNote(){
     if(!newTitle.trim()){onToast('Enter a title');return;}
-    const n={id:Date.now(),course:activeCourse,topic:activeTopic,type:newType,title:newTitle,preview:'',date:'Feb 13',hasAudio:false,hasMerge:false,content:'',bf:{facts:'',issue:'',rule:'',reasoning:'',notes:''}};
+    const n={id:nextId(),course:activeCourse,topic:activeTopic,type:newType,title:newTitle,preview:'',date:'Feb 13',hasAudio:false,hasMerge:false,content:'',bf:{facts:'',issue:'',rule:'',reasoning:'',notes:''}};
     setNotes(p=>[n,...p]);setActiveId(n.id);setShowNew(false);setNewTitle('');
     onToast('✎ Note created');
   }
@@ -1319,7 +1325,7 @@ function DocsView({docs,setDocs,onToast}){
   function create(){
     if(!dName.trim()){onToast('Enter a document name');return;}
     const icons={docx:'📝',xlsx:'📊',form:'📋'};
-    setDocs(p=>[{id:Date.now(),icon:icons[dType]||'📝',name:dName,type:dType,course:dCourse,modified:'Just now'},...p]);
+    setDocs(p=>[{id:nextId(),icon:icons[dType]||'📝',name:dName,type:dType,course:dCourse,modified:'Just now'},...p]);
     setModal(false);setDName('');onToast('✓ Document created');
   }
 
@@ -1467,7 +1473,7 @@ function TextbooksView({onToast}){
     setSelPopup(p=>({...p,show:false}));savedRange.current=null;
   }
   function addAnn(quote,color){
-    setAnns(p=>[{id:Date.now(),quote:`"${quote}${quote.length>=80?'…':''}"`,note:'',color,page},...p]);
+    setAnns(p=>[{id:nextId(),quote:`"${quote}${quote.length>=80?'…':''}"`,note:'',color,page},...p]);
     if(!annOpen)setAnnOpen(true);
   }
   function handleUpload(e){
@@ -1475,7 +1481,7 @@ function TextbooksView({onToast}){
     const name=f.name.replace(/\.(pdf|epub|txt)$/i,'');
     const icons=['📕','📗','📘','📙'],bgs=['rgba(217,95,95,.14)','rgba(74,171,120,.14)','rgba(82,131,224,.14)','rgba(201,168,76,.14)'];
     const i=Math.floor(Math.random()*4);
-    const nb={id:Date.now().toString(),title:name,sub:'Uploaded',icon:icons[i],bg:bgs[i],prog:0};
+    const nb={id:String(nextId()),title:name,sub:'Uploaded',icon:icons[i],bg:bgs[i],prog:0};
     setBooks(p=>[nb,...p]);setActiveBook(nb.id);
     onToast(`📚 "${name}" added to your library`);
   }

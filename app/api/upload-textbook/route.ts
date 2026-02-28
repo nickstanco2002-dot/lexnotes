@@ -1,27 +1,21 @@
 import { NextResponse } from "next/server";
 
+export const runtime = "nodejs";
+
 export async function POST(req: Request) {
   const formData = await req.formData();
-  const file = formData.get("file") as File;
+  const file = formData.get("file");
 
-  if (!file) {
-    return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
+  if (!(file instanceof File)) {
+    return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
   }
 
-  try {
-    // TODO: Implement full textbook upload pipeline with Supabase storage
-    // For MVP, return mock success response
-    return NextResponse.json({
-      success: true,
-      message: 'Textbook upload will be available in the next release',
-      textbookId: 'mock-' + Date.now(),
-      fileName: file.name
-    });
-  } catch (error) {
-    console.error('Upload error:', error);
-    return NextResponse.json(
-      { error: 'Failed to upload textbook' },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({
+    success: true,
+    message: "Textbook upload endpoint is wired. Storage integration pending.",
+    textbookId: `mock-${Date.now()}`,
+    fileName: file.name,
+    size: file.size,
+    type: file.type,
+  });
 }

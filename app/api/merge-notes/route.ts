@@ -1,34 +1,41 @@
-import { OpenAI } from 'openai';
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
+import { openai } from "../../../lib/openai";
+import { hasOpenAIKey, jsonError, OPENAI_MODEL, safeJson } from "../../../lib/api";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+export const runtime = "nodejs";
+
+type MergeBody = {
+  existingNote?: unknown;
+  transcript?: string;
+};
+
+const BASE_PROMPT = `You are an expert law clerk. Merge lecture insights into the existing brief without removing original content. Add sections: Professor's Comments and Exam Hypos when relevant.`;
 
 export async function POST(req: Request) {
-  const { existingNote, transcript } = await req.json();
+  if (!hasOpenAIKey()) {
+    return jsonError("OPENAI_API_KEY is not configured", 500);
+  }
 
-  const prompt = `
-    You are an expert law student. 
-    I have an existing Case Brief with Facts, Issue, and Rule.
-    I also have a raw Lecture Transcript from today's class.
-    
-    TASK: Merge the lecture insights into the brief. 
-    1. Add a new section called 'Professor's Take'.
-    2. Update the 'Analysis' section with any specific hypotheticals the professor mentioned.
-    3. Keep the original facts and rule intact unless the professor corrected them.
-    
-    Existing Note: ${JSON.stringify(existingNote)}
-    Transcript: ${transcript}
-  `;
+  const body = await safeJson<MergeBody>(req);
+  if (!body || !body.existingNote || !body.transcript) {
+    return jsonError("Invalid payload: existingNote and transcript are required", 400);
+  }
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
-      messages: [{ role: 'system', content: prompt }],
+      model: OPENAI_MODEL,
+      messages: [
+        { role: "system", content: BASE_PROMPT },
+        {
+          role: "user",
+          content: `Existing brief:\n${JSON.stringify(body.existingNote)}\n\nTranscript:\n${body.transcript}`,
+        },
+      ],
       temperature: 0.2,
     });
 
-    return NextResponse.json({ mergedNote: response.choices[0].message.content });
+    return NextResponse.json({ mergedNote: response.choices[0]?.message?.content || "" });
   } catch (error) {
-    return NextResponse.json({ error: 'Merge failed' }, { status: 500 });
+    return jsonError("Merge failed", 500, String(error));
   }
 }

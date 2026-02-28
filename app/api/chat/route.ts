@@ -1,32 +1,41 @@
-import { OpenAI } from 'openai';
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
+import { openai } from "../../../lib/openai";
+import { hasOpenAIKey, jsonError, OPENAI_MODEL, safeJson } from "../../../lib/api";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+export const runtime = "nodejs";
+
+type ChatBody = {
+  messages?: Array<{ role: "system" | "user" | "assistant"; content: string }>;
+  context?: string;
+};
 
 export async function POST(req: Request) {
-  const { messages, context } = await req.json();
+  if (!hasOpenAIKey()) {
+    return jsonError("OPENAI_API_KEY is not configured", 500);
+  }
 
-  const systemPrompt = `
-    You are LexNotes AI, an elite legal study assistant. 
-    Your goal is to help law students analyze cases, distill rules, and prepare for cold calls.
-    Focus on the IRAC framework. Be precise, academic, yet concise.
-    Current Context (Note/Textbook): ${context || 'None provided'}
-  `;
+  const body = await safeJson<ChatBody>(req);
+  if (!body || !Array.isArray(body.messages) || body.messages.length === 0) {
+    return jsonError("Invalid payload: messages[] is required", 400);
+  }
+
+  const systemPrompt =
+    `You are LexNotes AI, an elite legal study assistant. ` +
+    `Help with IRAC analysis and concise, accurate legal reasoning. ` +
+    `Current context: ${body.context || "None"}`;
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        ...messages
-      ],
+      model: OPENAI_MODEL,
+      messages: [{ role: "system", content: systemPrompt }, ...body.messages],
       temperature: 0.3,
     });
 
-    return NextResponse.json(response.choices[0].message);
+    return NextResponse.json({
+      message: response.choices[0]?.message?.content || "",
+      model: OPENAI_MODEL,
+    });
   } catch (error) {
-    return NextResponse.json({ error: 'AI failed to respond' }, { status: 500 });
+    return jsonError("AI failed to respond", 500, String(error));
   }
 }

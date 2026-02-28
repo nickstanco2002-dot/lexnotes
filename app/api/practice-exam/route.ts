@@ -1,27 +1,35 @@
-import { OpenAI } from 'openai';
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
+import { openai } from "../../../lib/openai";
+import { hasOpenAIKey, jsonError, OPENAI_MODEL, safeJson } from "../../../lib/api";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+export const runtime = "nodejs";
+
+type PracticeBody = {
+  course?: string;
+  topic?: string;
+};
 
 export async function POST(req: Request) {
-  const { course, topic, mode } = await req.json();
+  if (!hasOpenAIKey()) {
+    return jsonError("OPENAI_API_KEY is not configured", 500);
+  }
 
-  const systemPrompt = `
-    You are a Law School Professor. 
-    Generate a complex ${course} fact pattern regarding ${topic}.
-    The fact pattern should be 3-4 paragraphs long, full of 'red herrings' and multiple potential torts/breaches.
-    Include a 'Call of the Question' at the end (e.g., 'Discuss the liabilities of all parties').
-  `;
+  const body = await safeJson<PracticeBody>(req);
+  if (!body || !body.course || !body.topic) {
+    return jsonError("Invalid payload: course and topic are required", 400);
+  }
+
+  const prompt = `Generate a challenging ${body.course} exam-style fact pattern about ${body.topic}. Include a call of the question.`;
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
-      messages: [{ role: 'system', content: systemPrompt }],
+      model: OPENAI_MODEL,
+      messages: [{ role: "system", content: prompt }],
       temperature: 0.8,
     });
 
-    return NextResponse.json({ factPattern: response.choices[0].message.content });
+    return NextResponse.json({ factPattern: response.choices[0]?.message?.content || "" });
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to generate fact pattern' }, { status: 500 });
+    return jsonError("Failed to generate fact pattern", 500, String(error));
   }
 }

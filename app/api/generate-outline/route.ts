@@ -1,32 +1,35 @@
-import { OpenAI } from 'openai';
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
+import { openai } from "../../../lib/openai";
+import { hasOpenAIKey, jsonError, OPENAI_MODEL, safeJson } from "../../../lib/api";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+export const runtime = "nodejs";
+
+type OutlineBody = {
+  courseId?: string;
+  notes?: unknown;
+};
 
 export async function POST(req: Request) {
-  const { courseId, notes } = await req.json();
+  if (!hasOpenAIKey()) {
+    return jsonError("OPENAI_API_KEY is not configured", 500);
+  }
 
-  const prompt = `
-    You are an expert law school academic. 
-    Task: Create a Comprehensive Course Outline based on the provided notes.
-    Structure: 
-    1. Table of Contents
-    2. Black Letter Law (Restatements/Statutes)
-    3. Case Summaries (Facts/Holding) integrated into the rules
-    4. Exam Tips
-    
-    Notes Data: ${JSON.stringify(notes)}
-  `;
+  const body = await safeJson<OutlineBody>(req);
+  if (!body || !body.courseId) {
+    return jsonError("Invalid payload: courseId is required", 400);
+  }
+
+  const prompt = `Create a comprehensive law-school course outline for ${body.courseId}.\n\nNotes:\n${JSON.stringify(body.notes || [])}`;
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
-      messages: [{ role: 'system', content: prompt }],
+      model: OPENAI_MODEL,
+      messages: [{ role: "system", content: prompt }],
       temperature: 0.2,
     });
 
-    return NextResponse.json({ outline: response.choices[0].message.content });
+    return NextResponse.json({ outline: response.choices[0]?.message?.content || "" });
   } catch (error) {
-    return NextResponse.json({ error: 'Outline generation failed' }, { status: 500 });
+    return jsonError("Outline generation failed", 500, String(error));
   }
 }
