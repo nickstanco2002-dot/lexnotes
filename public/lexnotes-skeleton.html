@@ -1698,20 +1698,20 @@ function TextbooksView({onToast,user}){
   const [libCol,setLibCol]=useState(false);
   const [annOpen,setAnnOpen]=useState(true);
   const [tocOpen,setTocOpen]=useState(false);
-  const [activeBook,setActiveBook]=useState('prosser');
+  const [activeBook,setActiveBook]=useState('');
   const [hlColor,setHlColor]=useState('yellow');
   const [tool,setTool]=useState('highlight');
   const [fontSize,setFontSize]=useState(14);
   const [page,setPage]=useState(47);
-  const [anns,setAnns]=useState(INIT_ANNOTATIONS);
+  const [anns,setAnns]=useState([]);
   const [selPopup,setSelPopup]=useState({show:false,x:0,y:0});
-  const [books,setBooks]=useState(INIT_BOOKS);
+  const [books,setBooks]=useState([]);
   const savedRange=useRef(null);
   const paneRef=useRef();
   const fileRef=useRef();
 
   const TOC=['Ch. 1 — Introduction to Torts','Ch. 2 — Intentional Torts','Ch. 3 — Negligence','  § 3.1 The Reasonable Person','  § 3.2 The Hand Formula','  § 3.3 Custom as Evidence','Ch. 4 — Causation','Ch. 5 — Proximate Cause','Ch. 6 — Damages'];
-  const activeBookObj=books.find(b=>b.id===activeBook)||books[0];
+  const activeBookObj=books.find(b=>b.id===activeBook)||books[0]||null;
 
   useEffect(()=>{
     const savedBooks=readJSON(BOOKS_KEY,null);
@@ -1787,6 +1787,7 @@ function TextbooksView({onToast,user}){
         </div>
         <input ref={fileRef} type="file" accept=".pdf,.epub,.txt" style={{display:'none'}} onChange={handleUpload}/>
         <div style={{flex:1,overflowY:'auto'}}>
+          {books.length===0&&<div style={{padding:'16px 12px',fontSize:11,color:'var(--dim)'}}>No textbooks yet. Upload one to start your library.</div>}
           {books.map(b=>(
             <div key={b.id} className={`tbbook${activeBook===b.id?' on':''}`} onClick={()=>setActiveBook(b.id)}>
               <div className="tbthumb" style={{background:b.bg}}>{b.icon}</div>
@@ -1860,7 +1861,12 @@ function TextbooksView({onToast,user}){
 
           {/* Reading pane */}
           <div className="tbrp" ref={paneRef}>
-            {activeBookObj?.snippet?(
+            {!activeBookObj?(
+              <div className="tbpage" style={{fontSize}}>
+                <div className="tbct">No textbook selected</div>
+                <div style={{fontSize:12,color:'var(--muted)',marginTop:10}}>Upload a PDF, ePub, or text file to start reading and annotating.</div>
+              </div>
+            ):activeBookObj?.snippet?(
               <div className="tbpage" style={{fontSize}}>
                 <div className="tbct">{activeBookObj.title}</div>
                 <div style={{fontSize:10,color:'#3e4152',fontFamily:'JetBrains Mono,monospace',marginBottom:20,marginTop:4}}>
@@ -2280,9 +2286,9 @@ function App(){
     const n=readJSON(`lexnotes:${user.id}:notes`,null);
     const d=readJSON(`lexnotes:${user.id}:docs`,null);
     if(Array.isArray(n)&&n.length)setNotes(n);
-    else setNotes(INIT_NOTES);
+    else setNotes([]);
     if(Array.isArray(d)&&d.length)setDocs(d);
-    else setDocs(INIT_DOCS);
+    else setDocs([]);
   },[user?.id]);
 
   useEffect(()=>{
