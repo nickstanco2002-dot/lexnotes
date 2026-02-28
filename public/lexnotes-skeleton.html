@@ -429,6 +429,8 @@ let NEXT_ID=1000;
 const nextId=()=>++NEXT_ID;
 const USERS_KEY='lexnotes:users';
 const SESSION_KEY='lexnotes:session';
+const PASSWORD_RESET_REQUESTS_KEY='lexnotes:password-reset-requests';
+const RESET_SUPPORT_EMAIL='nickstanco2002@gmail.com';
 
 function readJSON(key,fallback){
   try{
@@ -568,6 +570,9 @@ function AuthScreen({onAuth,existingUser,onSwitch}){
   const [password,setPassword]=useState('');
   const [confirm,setConfirm]=useState('');
   const [err,setErr]=useState('');
+  const [forgotOpen,setForgotOpen]=useState(false);
+  const [forgotEmail,setForgotEmail]=useState('');
+  const [forgotMsg,setForgotMsg]=useState('');
 
   function submit(){
     const e=email.trim().toLowerCase();
@@ -587,6 +592,18 @@ function AuthScreen({onAuth,existingUser,onSwitch}){
     if(!existing||existing.password!==password){setErr('Invalid email or password');return;}
     writeJSON(SESSION_KEY,{id:existing.id});
     onAuth(existing);
+  }
+
+  function submitForgotPassword(){
+    const e=forgotEmail.trim().toLowerCase();
+    if(!e){setForgotMsg('Enter your account email');return;}
+    const users=readJSON(USERS_KEY,[]);
+    const existing=users.find(u=>u.email===e);
+    if(!existing){setForgotMsg('No account found for that email');return;}
+    const requests=readJSON(PASSWORD_RESET_REQUESTS_KEY,[]);
+    requests.push({id:`r_${nextId()}`,email:e,userId:existing.id,requestedAt:new Date().toISOString(),routeTo:RESET_SUPPORT_EMAIL});
+    writeJSON(PASSWORD_RESET_REQUESTS_KEY,requests.slice(-200));
+    setForgotMsg(`Reset request sent. Please check ${RESET_SUPPORT_EMAIL} for reset handling.`);
   }
 
   return(
@@ -617,11 +634,28 @@ function AuthScreen({onAuth,existingUser,onSwitch}){
           <div className="ff"><label className="lbl">Email</label><input className="inp" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@lawschool.edu"/></div>
           <div className="ff"><label className="lbl">Password</label><input className="inp" type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••"/></div>
           {mode==='signup'&&<div className="ff"><label className="lbl">Confirm Password</label><input className="inp" type="password" value={confirm} onChange={e=>setConfirm(e.target.value)} placeholder="••••••••"/></div>}
+          {mode==='login'&&<div style={{display:'flex',justifyContent:'flex-end'}}>
+            <button className="btn btn-ghost btn-sm" onClick={()=>{setForgotOpen(true);setForgotEmail(email);setForgotMsg('');}}>Forgot password?</button>
+          </div>}
           {err&&<div style={{fontSize:11,color:'var(--red)'}}>{err}</div>}
           <button className="btn btn-primary" style={{width:'100%',padding:10}} onClick={submit}>{mode==='signup'?'Create Account':'Log In'}</button>
           <div style={{fontSize:10,color:'var(--dim)'}}>Demo auth is stored in your browser localStorage for this prototype.</div>
         </div>
       </div>
+
+      <Modal open={forgotOpen} onClose={()=>setForgotOpen(false)} title="Reset Password" sub={`Requests are routed to ${RESET_SUPPORT_EMAIL}`} size="modal-sm">
+        <div className="mbody">
+          <div className="ff">
+            <label className="lbl">Account Email</label>
+            <input className="inp" value={forgotEmail} onChange={e=>setForgotEmail(e.target.value)} placeholder="you@lawschool.edu"/>
+          </div>
+          {forgotMsg&&<div style={{fontSize:11,color:forgotMsg.startsWith('Reset request sent')?'var(--green)':'var(--red)'}}>{forgotMsg}</div>}
+          <div className="frow">
+            <button className="btn btn-ghost" style={{flex:1}} onClick={()=>setForgotOpen(false)}>Cancel</button>
+            <button className="btn btn-primary" style={{flex:1}} onClick={submitForgotPassword}>Send Reset Request</button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
@@ -2404,6 +2438,7 @@ function App(){
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+try{window.parent&&window.parent!==window&&window.parent.postMessage({type:'lexnotes-ready'},window.location.origin);}catch{}
 </script>
 </body>
 </html>
