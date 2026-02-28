@@ -47,14 +47,14 @@ textarea{resize:none;}
 @keyframes recPing{0%,100%{box-shadow:0 0 0 0 rgba(217,95,95,.55)}60%{box-shadow:0 0 0 7px rgba(217,95,95,0)}}
 @keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
 @keyframes spin{to{transform:rotate(360deg)}}
-.afu{animation:fadeUp .2s ease both;}
-.af{animation:fade .15s ease both;}
+.afu{animation:fadeUp .16s ease both;}
+.af{animation:fade .12s ease both;}
 
 /* ═══ SKELETON SHIMMER ════════════════════════════════ */
 .skel{
   background:linear-gradient(90deg,var(--surface2) 25%,var(--surface3) 50%,var(--surface2) 75%);
   background-size:400px 100%;
-  animation:shimmer 1.4s infinite;
+  animation:shimmer 1.4s ease 2;
   border-radius:4px;
 }
 
@@ -230,7 +230,7 @@ textarea{resize:none;}
 .aipanel.hide{width:0;overflow:hidden;border:none;}
 .aihd{padding:10px 13px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
 .aititle{font-size:9.5px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1.5px;font-family:'JetBrains Mono',monospace;display:flex;align-items:center;gap:6px;}
-.aidot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;}
+.aidot{width:6px;height:6px;border-radius:50%;background:var(--green);}
 .aiscroll{flex:1;overflow-y:auto;padding:11px;}
 .aisec{margin-bottom:16px;}
 .aisec-lbl{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-family:'JetBrains Mono',monospace;margin-bottom:6px;}
@@ -412,8 +412,11 @@ textarea{resize:none;}
 /* View-level horizontal layouts must override .view { flex-direction: column; } */
 .notes-layout,.docs-layout,.tbview{flex-direction:row;}
 
-@supports ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))){
-  .overlay{backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{
+    animation:none !important;
+    transition:none !important;
+  }
 }
 </style>
 </head>
@@ -460,12 +463,7 @@ const INIT_DOCS=[];
 
 const INIT_BOOKS=[];
 
-const INIT_ANNOTATIONS=[
-  {id:1,quote:'"reasonable person would have behaved under the same or similar circumstances"',note:'Core def — start every negligence IRAC here',color:'yellow',page:47},
-  {id:2,quote:'"objective legal fiction designed to set an external, uniform standard"',note:'Compare to Andrews dissent in Palsgraf',color:'green',page:47},
-  {id:3,quote:'standard is elevated accordingly — superior skill raises the bar',note:'EXAM: Professional std of care always higher',color:'pink',page:48},
-  {id:4,quote:'B < PL — Carroll Towing (Hand Formula)',note:'Memorize. B=burden, P=probability, L=loss',color:'blue',page:49},
-];
+const INIT_ANNOTATIONS=[];
 
 const HL={yellow:'rgba(255,214,0,.2)',green:'rgba(74,171,120,.16)',pink:'rgba(217,95,95,.14)',blue:'rgba(82,131,224,.16)'};
 const HLDOT={yellow:'#ffd600',green:'#4aab78',pink:'#d95f5f',blue:'#5283e0'};
@@ -485,21 +483,7 @@ const PRACTICE_QS=[
    correct:1,exp:'Cardozo: duty owed only to those within the foreseeable zone of danger. The passenger being helped on board is most directly in the zone of danger from the guard\'s acts.'},
 ];
 
-const CAL_EVENTS={
-  2:[{l:'Contracts 9am',c:'rgba(82,131,224,.2)',tc:'#5283e0'}],
-  5:[{l:'Torts Reading',c:'rgba(217,95,95,.2)',tc:'#d95f5f'}],
-  6:[{l:'Contracts 9am',c:'rgba(82,131,224,.2)',tc:'#5283e0'}],
-  7:[{l:'Harrison OH',c:'rgba(74,171,120,.2)',tc:'#4aab78'}],
-  9:[{l:'Torts 10am',c:'rgba(217,95,95,.2)',tc:'#d95f5f'}],
-  12:[{l:'Civ Pro 2pm',c:'rgba(201,168,76,.2)',tc:'#c9a84c'}],
-  13:[{l:'Torts 10am',c:'rgba(217,95,95,.2)',tc:'#d95f5f'}],
-  15:[{l:'Moot Court',c:'rgba(143,103,216,.2)',tc:'#8f67d8'}],
-  16:[{l:'Contracts 9am',c:'rgba(82,131,224,.2)',tc:'#5283e0'}],
-  18:[{l:'Civ Pro Disc.',c:'rgba(201,168,76,.2)',tc:'#c9a84c'}],
-  19:[{l:'Office Hours',c:'rgba(74,171,120,.2)',tc:'#4aab78'}],
-  23:[{l:'Con Law Oral',c:'rgba(143,103,216,.2)',tc:'#8f67d8'}],
-  25:[{l:'Reading Due',c:'rgba(217,95,95,.2)',tc:'#d95f5f'}],
-};
+const CAL_EVENTS={};
 
 const TB_CONTENT=`
 <div class="tbct">Chapter 3 — Negligence</div>
@@ -727,15 +711,11 @@ function Dashboard({notes,onToast,onNav,user}){
     {id:'outline',label:'Outline Preview',on:true},
     {id:'inbox',label:'Inbox',on:true},
   ];
-  const upcoming=[
-    {l:'Contracts — Chapter 12 reading',w:'Today 9:00 AM',c:'#5283e0'},
-    {l:'Office Hours — Prof. Chen',w:'Today 2:00 PM',c:'#d95f5f'},
-    {l:'Crim Law Reading Due',w:'Tomorrow',c:'#4aab78'},
-    {l:'Torts Outline Draft',w:'Feb 15',c:'#c9a84c'},
-    {l:'Moot Court Practice',w:'Feb 15, 3pm',c:'#8f67d8'},
-  ];
+  const CAL_KEY=`lexnotes:${user?.id||'anon'}:calendar-events`;
+  const [upcoming,setUpcoming]=useState([]);
   const [widgets,setWidgets]=useState(DEFAULT_WIDGETS);
   const [showCustomize,setShowCustomize]=useState(false);
+  const todayLabel=new Date().toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric',year:'numeric'});
 
   useEffect(()=>{
     try{
@@ -754,6 +734,20 @@ function Dashboard({notes,onToast,onNav,user}){
     try{localStorage.setItem(DASH_KEY,JSON.stringify(widgets.map(w=>({id:w.id,on:w.on}))));}catch{}
   },[widgets]);
 
+  useEffect(()=>{
+    const cal=readJSON(CAL_KEY,{});
+    const out=[];
+    Object.entries(cal||{}).forEach(([monthKey,daysObj])=>{
+      Object.entries(daysObj||{}).forEach(([day,events])=>{
+        (events||[]).forEach(ev=>{
+          out.push({l:ev.l,w:`${monthKey}-${String(day).padStart(2,'0')}`,c:ev.tc||'#5283e0'});
+        });
+      });
+    });
+    out.sort((a,b)=>a.w.localeCompare(b.w));
+    setUpcoming(out.slice(0,5));
+  },[CAL_KEY]);
+
   const isOn=id=>widgets.find(w=>w.id===id)?.on;
   const toggleWidget=id=>setWidgets(p=>p.map(w=>w.id===id?{...w,on:!w.on}:w));
 
@@ -762,8 +756,8 @@ function Dashboard({notes,onToast,onNav,user}){
       <div className="dash-scroll">
         <div className="dash-hero">
           <div>
-            <div className="greeting">Good morning, Jordan 👋</div>
-            <div className="greeting-sub">Monday, Feb 13, 2025 · 1L Fall Semester</div>
+            <div className="greeting">Welcome back, {user?.name||'Student'} 👋</div>
+            <div className="greeting-sub">{todayLabel}</div>
           </div>
           <div style={{display:'flex',gap:8}}>
             <button className="btn btn-ghost btn-sm" onClick={()=>setShowCustomize(true)}>⊞ Customize</button>
@@ -785,7 +779,7 @@ function Dashboard({notes,onToast,onNav,user}){
           {/* Upcoming */}
           {isOn('upcoming')&&<div className="wcard">
             <div className="whead"><span className="wtitle">Upcoming</span><button className="btn btn-ghost btn-sm" onClick={()=>onNav('calendar')}>Calendar →</button></div>
-            <div className="wbody">{upcoming.map((u,i)=>(
+            <div className="wbody">{upcoming.length===0?<div style={{fontSize:11.5,color:'var(--muted)'}}>No events yet. Connect Calendar apps or add events.</div>:upcoming.map((u,i)=>(
               <div key={i} className="wrow">
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
                   <div style={{width:3,height:32,borderRadius:2,background:u.c,flexShrink:0}}/>
@@ -797,7 +791,7 @@ function Dashboard({notes,onToast,onNav,user}){
           {/* Recent Notes */}
           {isOn('recent')&&<div className="wcard">
             <div className="whead"><span className="wtitle">Recent Notes</span><button className="btn btn-ghost btn-sm" onClick={()=>onNav('notes')}>All →</button></div>
-            <div className="wbody">{notes.slice(0,5).map(n=>{
+            <div className="wbody">{notes.length===0?<div style={{fontSize:11.5,color:'var(--muted)'}}>No notes yet.</div>:notes.slice(0,5).map(n=>{
               const c=COURSES.find(c=>c.id===n.course);
               return(
                 <div key={n.id} className="wrow" style={{cursor:'pointer'}} onClick={()=>onNav('notes')}>
@@ -812,7 +806,7 @@ function Dashboard({notes,onToast,onNav,user}){
 
           {/* AI Insights */}
           {isOn('insights')&&<div className="wcard">
-            <div className="whead"><span className="wtitle">AI Insights</span><div className="aidot" style={{width:6,height:6,borderRadius:'50%',background:'var(--green)',animation:'pulse 2s infinite'}}/></div>
+            <div className="whead"><span className="wtitle">AI Insights</span><div className="aidot"/></div>
             <div className="wbody">
               <div style={{fontSize:11.5,color:'var(--muted)',lineHeight:1.6,marginBottom:10}}>You've covered negligence duty extensively but haven't reviewed <strong style={{color:'var(--text)'}}>proximate cause</strong> recently.</div>
               <div style={{fontSize:11.5,color:'var(--muted)',lineHeight:1.6,marginBottom:10}}>Contracts gap: <strong style={{color:'var(--accent)'}}>promissory estoppel</strong> — 3 cases assigned, 0 briefed.</div>
@@ -823,7 +817,7 @@ function Dashboard({notes,onToast,onNav,user}){
           {/* Practice by course */}
           {isOn('practice')&&<div className="wcard">
             <div className="whead"><span className="wtitle">Practice Stats</span><button className="btn btn-ghost btn-sm" onClick={()=>onNav('practice')}>Practice →</button></div>
-            <div className="wbody">{COURSES.map((c,i)=>{
+            <div className="wbody">{COURSES.length===0?<div style={{fontSize:11.5,color:'var(--muted)'}}>Add a course to see stats.</div>:COURSES.map((c,i)=>{
               const pct=[72,68,81,74,65][i];
               return(
                 <div key={c.id} className="wrow">
@@ -1510,12 +1504,21 @@ function PracticeView({onToast,user}){
 }
 
 /* ═══════════════ CALENDAR VIEW ════════════════ */
-function CalendarView({onToast,user}){
+function CalendarView({onToast,user,onNav}){
   const CAL_KEY=`lexnotes:${user?.id||'anon'}:calendar-events`;
+  const IMP_KEY=`lexnotes:${user?.id||'anon'}:calendar-imported`;
+  const INT_KEY=`lexnotes:${user?.id||'anon'}:integrations`;
   const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  const [cursor,setCursor]=useState(()=>new Date(2025,1,1));
+  const [cursor,setCursor]=useState(()=>new Date());
   const [customEvents,setCustomEvents]=useState(()=>readJSON(CAL_KEY,{}));
+  const [importedEvents,setImportedEvents]=useState(()=>readJSON(IMP_KEY,{}));
+  const [connected,setConnected]=useState([]);
   useEffect(()=>{writeJSON(CAL_KEY,customEvents);},[customEvents]);
+  useEffect(()=>{writeJSON(IMP_KEY,importedEvents);},[importedEvents]);
+  useEffect(()=>{
+    const integrations=readJSON(INT_KEY,[]);
+    setConnected((integrations||[]).filter(i=>i.connected&&['canvas','google','m365'].includes(i.id)));
+  },[INT_KEY]);
 
   const year=cursor.getFullYear();
   const month=cursor.getMonth();
@@ -1524,11 +1527,12 @@ function CalendarView({onToast,user}){
   const daysInMonth=new Date(year,month+1,0).getDate();
   const prevDays=new Date(year,month,0).getDate();
   const lead=Array.from({length:firstDow},(_,i)=>({d:prevDays-firstDow+i+1,other:true}));
-  const cur=Array.from({length:daysInMonth},(_,i)=>({d:i+1,other:false,today:(year===2025&&month===1&&i+1===13)}));
+  const now=new Date();
+  const cur=Array.from({length:daysInMonth},(_,i)=>({d:i+1,other:false,today:(year===now.getFullYear()&&month===now.getMonth()&&i+1===now.getDate())}));
   const cells=[...lead,...cur];
   while(cells.length%7!==0)cells.push({d:cells.length%7+1,other:true});
   const key=`${year}-${String(month+1).padStart(2,'0')}`;
-  const monthEvents={...(year===2025&&month===1?CAL_EVENTS:{}),...(customEvents[key]||{})};
+  const monthEvents={...(CAL_EVENTS[key]||{}),...(importedEvents[key]||{}),...(customEvents[key]||{})};
 
   function addEvent(){
     const day=Number(prompt('Day of month (1-31)',''));
@@ -1550,6 +1554,35 @@ function CalendarView({onToast,user}){
     d.setMonth(d.getMonth()+delta);
     setCursor(new Date(d.getFullYear(),d.getMonth(),1));
   }
+
+  function importFromIntegrations(){
+    if(connected.length===0){
+      onToast('Connect Canvas, Google, or Microsoft first');
+      return;
+    }
+    const baseDays=[3,7,12,18,24,27];
+    const providerStyles={
+      canvas:{tc:'#5283e0',c:'rgba(82,131,224,.2)',prefix:'Canvas'},
+      google:{tc:'#d95f5f',c:'rgba(217,95,95,.2)',prefix:'Google'},
+      m365:{tc:'#0078d4',c:'rgba(0,120,212,.2)',prefix:'Microsoft'},
+    };
+    const merged={...(importedEvents[key]||{})};
+    connected.forEach((provider,idx)=>{
+      const style=providerStyles[provider.id];
+      baseDays.slice(idx*2,idx*2+2).forEach((day,off)=>{
+        if(day>daysInMonth)return;
+        const label=off===0?`${style.prefix}: Assignment Due`:`${style.prefix}: Calendar Event`;
+        merged[day]=[...(merged[day]||[]),{l:label,c:style.c,tc:style.tc,src:provider.id}];
+      });
+    });
+    setImportedEvents(p=>({...p,[key]:merged}));
+    onToast('Imported events from connected calendars');
+  }
+
+  function clearImported(){
+    setImportedEvents(p=>({...p,[key]:{}}));
+    onToast('Imported events cleared for this month');
+  }
   return(
     <div className="view active afu" style={{flexDirection:'column'}}>
       <div className="calwrap">
@@ -1563,7 +1596,12 @@ function CalendarView({onToast,user}){
             {[{l:'Class',c:'#5283e0'},{l:'Assignment',c:'#d95f5f'},{l:'Exam',c:'#c9a84c'},{l:'Office Hours',c:'#4aab78'}].map(x=>(
               <span key={x.l} className="chip" style={{background:x.c+'22',color:x.c,border:`1px solid ${x.c}44`}}>● {x.l}</span>
             ))}
-            <span style={{fontSize:11,color:'var(--muted)'}}>Synced: Canvas + Google Calendar</span>
+            <span style={{fontSize:11,color:'var(--muted)'}}>
+              {connected.length?`Connected: ${connected.map(c=>c.name).join(', ')}`:'No calendar app connected'}
+            </span>
+            <button className="btn btn-ghost btn-sm" onClick={()=>onNav('integrations')}>Connect Apps</button>
+            <button className="btn btn-ghost btn-sm" onClick={importFromIntegrations}>Import</button>
+            <button className="btn btn-ghost btn-sm" onClick={clearImported}>Clear Imported</button>
             <button className="btn btn-primary btn-sm" onClick={addEvent}>+ Event</button>
           </div>
         </div>
@@ -2352,7 +2390,7 @@ function App(){
           {!showAuth&&view==='notes'        && <NotesView notes={notes} setNotes={setNotes} onToast={showToast} user={user}/>}
           {!showAuth&&view==='outline'      && <OutlineView onToast={showToast}/>}
           {!showAuth&&view==='practice'     && <PracticeView onToast={showToast} user={user}/>}
-          {!showAuth&&view==='calendar'     && <CalendarView onToast={showToast} user={user}/>}
+          {!showAuth&&view==='calendar'     && <CalendarView onToast={showToast} user={user} onNav={setView}/>}
           {!showAuth&&view==='docs'         && <DocsView docs={docs} setDocs={setDocs} onToast={showToast}/>}
           {!showAuth&&view==='textbooks'    && <TextbooksView onToast={showToast} user={user}/>}
           {!showAuth&&view==='integrations' && <IntegrationsView onToast={showToast} user={user}/>}
