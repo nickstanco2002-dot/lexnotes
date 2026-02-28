@@ -430,7 +430,7 @@ textarea{resize:none;}
 <body>
 <div id="root"></div>
 <script id="lexnotes-app-source" type="text/plain">
-const {useState,useEffect,useRef,useCallback}=React;
+const {useState,useEffect,useRef,useCallback,useMemo}=React;
 
 let NEXT_ID=1000;
 const nextId=()=>++NEXT_ID;
@@ -987,20 +987,26 @@ function NotesView({notes,setNotes,onToast,user}){
   },[recording]);
 
   const fmt=s=>`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
-  const allCourses=[...COURSES,...extraCourses];
+  const allCourses=useMemo(()=>[...COURSES,...extraCourses],[extraCourses]);
   const subsectionKey=(courseId,topicId)=>`${courseId||'none'}::${topicId||'none'}`;
   const activeNote=notes.find(n=>n.id===activeId);
   const courseObj=allCourses.find(c=>c.id===activeCourse);
-  const selectedTopics=[...(courseObj?.topics||[]),...(extraTopics[activeCourse]||[])];
+  const selectedTopics=useMemo(
+    ()=>[...(courseObj?.topics||[]),...(extraTopics[activeCourse]||[])],
+    [courseObj,extraTopics,activeCourse]
+  );
   const topicObj=selectedTopics.find(t=>t.id===activeTopic);
-  const currentSubsections=extraSubsections[subsectionKey(activeCourse,activeTopic)]||[];
-  const filtered=notes.filter(n=>{
+  const currentSubsections=useMemo(
+    ()=>extraSubsections[subsectionKey(activeCourse,activeTopic)]||[],
+    [extraSubsections,activeCourse,activeTopic]
+  );
+  const filtered=useMemo(()=>notes.filter(n=>{
     if(n.course!==activeCourse||n.topic!==activeTopic)return false;
     if(activeSubsection&&n.subsection!==activeSubsection)return false;
     if(typeFilter!=='all'&&n.type!==typeFilter)return false;
     if(search&&!n.title.toLowerCase().includes(search.toLowerCase()))return false;
     return true;
-  });
+  }),[notes,activeCourse,activeTopic,activeSubsection,typeFilter,search]);
   const bothCol=navCol&&listCol;
 
   const TYPE_COLOR={brief:'var(--blue)',class:'var(--red)',auto:'var(--accent)',reading:'var(--green)'};
@@ -1144,6 +1150,7 @@ function NotesView({notes,setNotes,onToast,user}){
     const html=richRef.current.innerHTML||'';
     const tmp=document.createElement('div');tmp.innerHTML=html;
     const text=tmp.innerText||'';
+    if((activeNote.contentHtml||'')===html&&(activeNote.content||'')===text)return;
     setNotes(p=>p.map(n=>n.id===activeId?{...n,contentHtml:html,content:text}:n));
   }
 
@@ -1188,6 +1195,14 @@ function NotesView({notes,setNotes,onToast,user}){
 
   function saveBriefDraft(){
     if(!activeNote||activeNote.type!=='brief'||!briefDraft)return;
+    const curr=activeNote.bf||{};
+    if(
+      (curr.facts||'')===(briefDraft.facts||'')&&
+      (curr.issue||'')===(briefDraft.issue||'')&&
+      (curr.rule||'')===(briefDraft.rule||'')&&
+      (curr.reasoning||'')===(briefDraft.reasoning||'')&&
+      (curr.notes||'')===(briefDraft.notes||'')
+    )return;
     setNotes(p=>p.map(n=>n.id===activeId?{...n,bf:{...n.bf,...briefDraft}}:n));
   }
 
@@ -1943,6 +1958,7 @@ function DocsView({docs,setDocs,onToast}){
 
   function setDocHtml(v){
     if(!activeDoc)return;
+    if(((activeDoc.content&&activeDoc.content.html)||'')===v)return;
     updateDoc(activeDoc.id,{content:{...(activeDoc.content||{}),html:v}});
   }
 
@@ -1961,6 +1977,7 @@ function DocsView({docs,setDocs,onToast}){
   function setSheetCell(r,c,v){
     if(!activeDoc)return;
     const cur=(activeDoc.content&&activeDoc.content.rows)||Array.from({length:12},()=>Array.from({length:6},()=>''));;
+    if((cur[r]&&cur[r][c])===v)return;
     const rows=cur.map((row,ri)=>ri===r?row.map((cell,ci)=>ci===c?v:cell):row);
     const formulas={...((activeDoc.content&&activeDoc.content.formulas)||{})};
     delete formulas[`${r},${c}`];
@@ -2322,7 +2339,9 @@ function TextbooksView({onToast,user,notes,setNotes}){
         const r=sel.getRangeAt(0);const rect=r.getBoundingClientRect();
         savedRange.current=r.cloneRange();
         setSelPopup({show:true,x:rect.left+rect.width/2-170,y:rect.top-46});
-      } else setSelPopup(p=>({...p,show:false}));
+      } else {
+        setSelPopup(p=>p.show?{...p,show:false}:p);
+      }
     }
     document.addEventListener('mouseup',onUp);
     return()=>document.removeEventListener('mouseup',onUp);

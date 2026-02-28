@@ -2,7 +2,8 @@ const {
   useState,
   useEffect,
   useRef,
-  useCallback
+  useCallback,
+  useMemo
 } = React;
 let NEXT_ID = 1000;
 const nextId = () => ++NEXT_ID;
@@ -1365,20 +1366,20 @@ function NotesView({
     return () => clearInterval(recRef.current);
   }, [recording]);
   const fmt = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
-  const allCourses = [...COURSES, ...extraCourses];
+  const allCourses = useMemo(() => [...COURSES, ...extraCourses], [extraCourses]);
   const subsectionKey = (courseId, topicId) => `${courseId || 'none'}::${topicId || 'none'}`;
   const activeNote = notes.find(n => n.id === activeId);
   const courseObj = allCourses.find(c => c.id === activeCourse);
-  const selectedTopics = [...(courseObj?.topics || []), ...(extraTopics[activeCourse] || [])];
+  const selectedTopics = useMemo(() => [...(courseObj?.topics || []), ...(extraTopics[activeCourse] || [])], [courseObj, extraTopics, activeCourse]);
   const topicObj = selectedTopics.find(t => t.id === activeTopic);
-  const currentSubsections = extraSubsections[subsectionKey(activeCourse, activeTopic)] || [];
-  const filtered = notes.filter(n => {
+  const currentSubsections = useMemo(() => extraSubsections[subsectionKey(activeCourse, activeTopic)] || [], [extraSubsections, activeCourse, activeTopic]);
+  const filtered = useMemo(() => notes.filter(n => {
     if (n.course !== activeCourse || n.topic !== activeTopic) return false;
     if (activeSubsection && n.subsection !== activeSubsection) return false;
     if (typeFilter !== 'all' && n.type !== typeFilter) return false;
     if (search && !n.title.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
-  });
+  }), [notes, activeCourse, activeTopic, activeSubsection, typeFilter, search]);
   const bothCol = navCol && listCol;
   const TYPE_COLOR = {
     brief: 'var(--blue)',
@@ -1598,6 +1599,7 @@ function NotesView({
     const tmp = document.createElement('div');
     tmp.innerHTML = html;
     const text = tmp.innerText || '';
+    if ((activeNote.contentHtml || '') === html && (activeNote.content || '') === text) return;
     setNotes(p => p.map(n => n.id === activeId ? {
       ...n,
       contentHtml: html,
@@ -1701,6 +1703,8 @@ function NotesView({
   }];
   function saveBriefDraft() {
     if (!activeNote || activeNote.type !== 'brief' || !briefDraft) return;
+    const curr = activeNote.bf || {};
+    if ((curr.facts || '') === (briefDraft.facts || '') && (curr.issue || '') === (briefDraft.issue || '') && (curr.rule || '') === (briefDraft.rule || '') && (curr.reasoning || '') === (briefDraft.reasoning || '') && (curr.notes || '') === (briefDraft.notes || '')) return;
     setNotes(p => p.map(n => n.id === activeId ? {
       ...n,
       bf: {
@@ -3238,6 +3242,7 @@ function DocsView({
   }
   function setDocHtml(v) {
     if (!activeDoc) return;
+    if ((activeDoc.content && activeDoc.content.html || '') === v) return;
     updateDoc(activeDoc.id, {
       content: {
         ...(activeDoc.content || {}),
@@ -3264,6 +3269,7 @@ function DocsView({
       length: 6
     }, () => ''));
     ;
+    if ((cur[r] && cur[r][c]) === v) return;
     const rows = cur.map((row, ri) => ri === r ? row.map((cell, ci) => ci === c ? v : cell) : row);
     const formulas = {
       ...(activeDoc.content && activeDoc.content.formulas || {})
@@ -4068,10 +4074,12 @@ function TextbooksView({
           x: rect.left + rect.width / 2 - 170,
           y: rect.top - 46
         });
-      } else setSelPopup(p => ({
-        ...p,
-        show: false
-      }));
+      } else {
+        setSelPopup(p => p.show ? {
+          ...p,
+          show: false
+        } : p);
+      }
     }
     document.addEventListener('mouseup', onUp);
     return () => document.removeEventListener('mouseup', onUp);
