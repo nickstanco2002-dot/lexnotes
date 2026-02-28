@@ -430,7 +430,6 @@ const nextId=()=>++NEXT_ID;
 const USERS_KEY='lexnotes:users';
 const SESSION_KEY='lexnotes:session';
 const PASSWORD_RESET_REQUESTS_KEY='lexnotes:password-reset-requests';
-const RESET_SUPPORT_EMAIL='nickstanco2002@gmail.com';
 
 function readJSON(key,fallback){
   try{
@@ -601,9 +600,9 @@ function AuthScreen({onAuth,existingUser,onSwitch}){
     const existing=users.find(u=>u.email===e);
     if(!existing){setForgotMsg('No account found for that email');return;}
     const requests=readJSON(PASSWORD_RESET_REQUESTS_KEY,[]);
-    requests.push({id:`r_${nextId()}`,email:e,userId:existing.id,requestedAt:new Date().toISOString(),routeTo:RESET_SUPPORT_EMAIL});
+    requests.push({id:`r_${nextId()}`,email:e,userId:existing.id,requestedAt:new Date().toISOString(),routeTo:e});
     writeJSON(PASSWORD_RESET_REQUESTS_KEY,requests.slice(-200));
-    setForgotMsg(`Reset request sent. Please check ${RESET_SUPPORT_EMAIL} for reset handling.`);
+    setForgotMsg(`Reset request sent to ${e}.`);
   }
 
   return(
@@ -643,7 +642,7 @@ function AuthScreen({onAuth,existingUser,onSwitch}){
         </div>
       </div>
 
-      <Modal open={forgotOpen} onClose={()=>setForgotOpen(false)} title="Reset Password" sub={`Requests are routed to ${RESET_SUPPORT_EMAIL}`} size="modal-sm">
+      <Modal open={forgotOpen} onClose={()=>setForgotOpen(false)} title="Reset Password" sub="Reset requests are sent to the account email entered below" size="modal-sm">
         <div className="mbody">
           <div className="ff">
             <label className="lbl">Account Email</label>
