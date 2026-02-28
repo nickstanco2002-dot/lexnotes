@@ -420,6 +420,24 @@ const {useState,useEffect,useRef,useCallback}=React;
 
 let NEXT_ID=1000;
 const nextId=()=>++NEXT_ID;
+const USERS_KEY='lexnotes:users';
+const SESSION_KEY='lexnotes:session';
+
+function readJSON(key,fallback){
+  try{
+    const raw=localStorage.getItem(key);
+    if(!raw)return fallback;
+    return JSON.parse(raw);
+  }catch{return fallback;}
+}
+
+function writeJSON(key,value){
+  try{localStorage.setItem(key,JSON.stringify(value));}catch{}
+}
+
+function esc(s=''){
+  return String(s).replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+}
 
 /* ═══════════════ DATA ═══════════════════════════════ */
 const COURSES=[
@@ -579,8 +597,63 @@ function Toggle({on,onToggle}){
   );
 }
 
+function AuthScreen({onAuth}){
+  const [mode,setMode]=useState('login');
+  const [name,setName]=useState('');
+  const [email,setEmail]=useState('');
+  const [password,setPassword]=useState('');
+  const [confirm,setConfirm]=useState('');
+  const [err,setErr]=useState('');
+
+  function submit(){
+    const e=email.trim().toLowerCase();
+    if(!e||!password){setErr('Email and password are required');return;}
+    const users=readJSON(USERS_KEY,[]);
+    const existing=users.find(u=>u.email===e);
+    if(mode==='signup'){
+      if(!name.trim()){setErr('Name is required');return;}
+      if(password!==confirm){setErr('Passwords do not match');return;}
+      if(existing){setErr('An account with this email already exists');return;}
+      const user={id:`u_${nextId()}`,name:name.trim(),email:e,password,createdAt:new Date().toISOString()};
+      writeJSON(USERS_KEY,[...users,user]);
+      writeJSON(SESSION_KEY,{id:user.id});
+      onAuth(user);
+      return;
+    }
+    if(!existing||existing.password!==password){setErr('Invalid email or password');return;}
+    writeJSON(SESSION_KEY,{id:existing.id});
+    onAuth(existing);
+  }
+
+  return(
+    <div className="view active afu" style={{display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
+      <div className="modal modal-sm" style={{maxHeight:'none'}}>
+        <div className="mhd">
+          <div>
+            <div className="mhd-title">Welcome to LexNotes</div>
+            <div className="mhd-sub">Create an account or sign in to load your workspace</div>
+          </div>
+        </div>
+        <div className="mbody">
+          <div className="choices">
+            <button className={`choice${mode==='login'?' picked':''}`} onClick={()=>{setMode('login');setErr('');}}>Log In</button>
+            <button className={`choice${mode==='signup'?' picked':''}`} onClick={()=>{setMode('signup');setErr('');}}>Create Account</button>
+          </div>
+          {mode==='signup'&&<div className="ff"><label className="lbl">Name</label><input className="inp" value={name} onChange={e=>setName(e.target.value)} placeholder="Jordan Davis"/></div>}
+          <div className="ff"><label className="lbl">Email</label><input className="inp" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@lawschool.edu"/></div>
+          <div className="ff"><label className="lbl">Password</label><input className="inp" type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••"/></div>
+          {mode==='signup'&&<div className="ff"><label className="lbl">Confirm Password</label><input className="inp" type="password" value={confirm} onChange={e=>setConfirm(e.target.value)} placeholder="••••••••"/></div>}
+          {err&&<div style={{fontSize:11,color:'var(--red)'}}>{err}</div>}
+          <button className="btn btn-primary" style={{width:'100%',padding:10}} onClick={submit}>{mode==='signup'?'Create Account':'Log In'}</button>
+          <div style={{fontSize:10,color:'var(--dim)'}}>Demo auth is stored in your browser localStorage for this prototype.</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ═══════════════ SIDEBAR ════════════════════════ */
-function Sidebar({view,onNav,mini,setMini}){
+function Sidebar({view,onNav,mini,setMini,user,onLogout}){
   const navItems=[
     {id:'dashboard',ic:'⊞',label:'Dashboard'},
     {id:'notes',ic:'✎',label:'Notes',dot:true},
@@ -624,8 +697,12 @@ function Sidebar({view,onNav,mini,setMini}){
       </div>}
       <div className="sb-bottom">
         <div className="ucard">
-          <div className="avatar">JD</div>
-          {!mini&&<div><div style={{fontSize:12.5,fontWeight:500}}>Jordan Davis</div><div style={{fontSize:10.5,color:'var(--muted)'}}>1L · Fall 2025</div></div>}
+          <div className="avatar">{(user?.name||'U').slice(0,2).toUpperCase()}</div>
+          {!mini&&<div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:12.5,fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{user?.name||'User'}</div>
+            <div style={{fontSize:10.5,color:'var(--muted)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{user?.email||'Not signed in'}</div>
+          </div>}
+          {!mini&&<button className="btn btn-ghost btn-sm" onClick={e=>{e.stopPropagation();onLogout();}}>Log out</button>}
         </div>
       </div>
     </div>
@@ -650,8 +727,8 @@ function Topbar({view,onNew,onToast}){
 }
 
 /* ═══════════════ DASHBOARD ══════════════════════ */
-function Dashboard({notes,onToast,onNav}){
-  const DASH_KEY='lexnotes:dashboard-widgets';
+function Dashboard({notes,onToast,onNav,user}){
+  const DASH_KEY=`lexnotes:${user?.id||'anon'}:dashboard-widgets`;
   const DEFAULT_WIDGETS=[
     {id:'upcoming',label:'Upcoming',on:true},
     {id:'recent',label:'Recent Notes',on:true},
@@ -1464,7 +1541,10 @@ function DocsView({docs,setDocs,onToast}){
 }
 
 /* ═══════════════ TEXTBOOKS VIEW ════════════════ */
-function TextbooksView({onToast}){
+function TextbooksView({onToast,user}){
+  const BOOKS_KEY=`lexnotes:${user?.id||'anon'}:textbooks`;
+  const ANNS_KEY=`lexnotes:${user?.id||'anon'}:annotations`;
+  const ACTIVE_BOOK_KEY=`lexnotes:${user?.id||'anon'}:active-book`;
   const [libCol,setLibCol]=useState(false);
   const [annOpen,setAnnOpen]=useState(true);
   const [tocOpen,setTocOpen]=useState(false);
@@ -1481,6 +1561,20 @@ function TextbooksView({onToast}){
   const fileRef=useRef();
 
   const TOC=['Ch. 1 — Introduction to Torts','Ch. 2 — Intentional Torts','Ch. 3 — Negligence','  § 3.1 The Reasonable Person','  § 3.2 The Hand Formula','  § 3.3 Custom as Evidence','Ch. 4 — Causation','Ch. 5 — Proximate Cause','Ch. 6 — Damages'];
+  const activeBookObj=books.find(b=>b.id===activeBook)||books[0];
+
+  useEffect(()=>{
+    const savedBooks=readJSON(BOOKS_KEY,null);
+    const savedAnns=readJSON(ANNS_KEY,null);
+    const savedActive=localStorage.getItem(ACTIVE_BOOK_KEY);
+    if(Array.isArray(savedBooks)&&savedBooks.length)setBooks(savedBooks);
+    if(Array.isArray(savedAnns)&&savedAnns.length)setAnns(savedAnns);
+    if(savedActive)setActiveBook(savedActive);
+  },[BOOKS_KEY,ANNS_KEY,ACTIVE_BOOK_KEY]);
+
+  useEffect(()=>{writeJSON(BOOKS_KEY,books);},[books,BOOKS_KEY]);
+  useEffect(()=>{writeJSON(ANNS_KEY,anns);},[anns,ANNS_KEY]);
+  useEffect(()=>{try{localStorage.setItem(ACTIVE_BOOK_KEY,activeBook);}catch{}},[activeBook,ACTIVE_BOOK_KEY]);
 
   useEffect(()=>{
     function onUp(e){
@@ -1515,14 +1609,21 @@ function TextbooksView({onToast}){
     setAnns(p=>[{id:nextId(),quote:`"${quote}${quote.length>=80?'…':''}"`,note:'',color,page},...p]);
     if(!annOpen)setAnnOpen(true);
   }
-  function handleUpload(e){
+  async function handleUpload(e){
     const f=e.target.files[0];if(!f)return;
     const name=f.name.replace(/\.(pdf|epub|txt)$/i,'');
     const icons=['📕','📗','📘','📙'],bgs=['rgba(217,95,95,.14)','rgba(74,171,120,.14)','rgba(82,131,224,.14)','rgba(201,168,76,.14)'];
     const i=Math.floor(Math.random()*4);
-    const nb={id:String(nextId()),title:name,sub:'Uploaded',icon:icons[i],bg:bgs[i],prog:0};
+    let snippet='';
+    try{
+      if((f.type||'').includes('text')||f.name.toLowerCase().endsWith('.txt')){
+        snippet=(await f.text()).slice(0,2200);
+      }
+    }catch{}
+    const nb={id:String(nextId()),title:name,sub:'Uploaded',icon:icons[i],bg:bgs[i],prog:0,fileName:f.name,fileType:f.type||'unknown',fileSize:f.size,uploadedAt:new Date().toISOString(),snippet};
     setBooks(p=>[nb,...p]);setActiveBook(nb.id);
-    onToast(`📚 "${name}" added to your library`);
+    onToast(`📚 "${name}" uploaded and saved`);
+    e.target.value='';
   }
 
   return(
@@ -1609,7 +1710,18 @@ function TextbooksView({onToast}){
 
           {/* Reading pane */}
           <div className="tbrp" ref={paneRef}>
-            <div className="tbpage" style={{fontSize}} dangerouslySetInnerHTML={{__html:TB_CONTENT}}/>
+            {activeBookObj?.snippet?(
+              <div className="tbpage" style={{fontSize}}>
+                <div className="tbct">{activeBookObj.title}</div>
+                <div style={{fontSize:10,color:'#3e4152',fontFamily:'JetBrains Mono,monospace',marginBottom:20,marginTop:4}}>
+                  {activeBookObj.fileName} · {(activeBookObj.fileSize/1024).toFixed(1)} KB
+                </div>
+                <div className="tbst">Uploaded Content Preview</div>
+                <p style={{whiteSpace:'pre-wrap'}}>{activeBookObj.snippet}</p>
+              </div>
+            ):(
+              <div className="tbpage" style={{fontSize}} dangerouslySetInnerHTML={{__html:TB_CONTENT}}/>
+            )}
           </div>
 
           {/* Annotations */}
@@ -1670,8 +1782,8 @@ function TextbooksView({onToast}){
 }
 
 /* ═══════════════ INTEGRATIONS ══════════════════ */
-function IntegrationsView({onToast}){
-  const INT_KEY='lexnotes:integrations';
+function IntegrationsView({onToast,user}){
+  const INT_KEY=`lexnotes:${user?.id||'anon'}:integrations`;
   const defaults=[
     {id:'canvas',ic:'🎓',bg:'rgba(82,131,224,.14)',name:'Canvas LMS',desc:'Sync courses, assignments, due dates, and syllabi into LexNotes.',connected:false,status:''},
     {id:'google',ic:'📅',bg:'rgba(217,95,95,.14)',name:'Google Calendar',desc:'Two-way calendar sync for classes, office hours, and deadlines.',connected:false,status:''},
@@ -1957,7 +2069,26 @@ function App(){
   const [notes,setNotes]=useState(INIT_NOTES);
   const [docs,setDocs]=useState(INIT_DOCS);
   const [sidebarMini,setSidebarMini]=useState(false);
+  const [user,setUser]=useState(null);
+  const [authChecked,setAuthChecked]=useState(false);
   const [toasts,showToast]=useToast();
+
+  useEffect(()=>{
+    const session=readJSON(SESSION_KEY,null);
+    const users=readJSON(USERS_KEY,[]);
+    if(session?.id){
+      const u=users.find(x=>x.id===session.id);
+      if(u)setUser(u);
+    }
+    setAuthChecked(true);
+  },[]);
+
+  function logout(){
+    try{localStorage.removeItem(SESSION_KEY);}catch{}
+    setUser(null);
+    setView('dashboard');
+    showToast('Logged out');
+  }
 
   function handleNew(){
     if(view==='notes')showToast('Creating new note…');
@@ -1966,22 +2097,47 @@ function App(){
     else showToast('Coming in v1.1!');
   }
 
+  useEffect(()=>{
+    if(!user)return;
+    const n=readJSON(`lexnotes:${user.id}:notes`,null);
+    const d=readJSON(`lexnotes:${user.id}:docs`,null);
+    if(Array.isArray(n)&&n.length)setNotes(n);
+    else setNotes(INIT_NOTES);
+    if(Array.isArray(d)&&d.length)setDocs(d);
+    else setDocs(INIT_DOCS);
+  },[user?.id]);
+
+  useEffect(()=>{
+    if(!user)return;
+    writeJSON(`lexnotes:${user.id}:notes`,notes);
+  },[notes,user?.id]);
+
+  useEffect(()=>{
+    if(!user)return;
+    writeJSON(`lexnotes:${user.id}:docs`,docs);
+  },[docs,user?.id]);
+
+  if(!authChecked){
+    return <div className="app"><div className="main"><div className="content"><div className="view active afu" style={{alignItems:'center',justifyContent:'center'}}>Loading…</div></div></div></div>;
+  }
+
   return(
     <div className="app">
-      <Sidebar view={view} onNav={setView} mini={sidebarMini} setMini={setSidebarMini}/>
+      {user?<Sidebar view={view} onNav={setView} mini={sidebarMini} setMini={setSidebarMini} user={user} onLogout={logout}/>:null}
       <div className="main">
-        <Topbar view={view} onNew={handleNew} onToast={showToast}/>
+        {user?<Topbar view={view} onNew={handleNew} onToast={showToast}/>:null}
         <div className="content">
-          {view==='dashboard'    && <Dashboard notes={notes} onToast={showToast} onNav={setView}/>}
-          {view==='notes'        && <NotesView notes={notes} setNotes={setNotes} onToast={showToast}/>}
-          {view==='outline'      && <OutlineView onToast={showToast}/>}
-          {view==='practice'     && <PracticeView onToast={showToast}/>}
-          {view==='calendar'     && <CalendarView onToast={showToast}/>}
-          {view==='docs'         && <DocsView docs={docs} setDocs={setDocs} onToast={showToast}/>}
-          {view==='textbooks'    && <TextbooksView onToast={showToast}/>}
-          {view==='integrations' && <IntegrationsView onToast={showToast}/>}
-          {view==='settings'     && <SettingsView onToast={showToast}/>}
-          {view==='apis'         && <APIView/>}
+          {!user && <AuthScreen onAuth={u=>{setUser(u);showToast(`Welcome, ${u.name}`);}}/>}
+          {user&&view==='dashboard'    && <Dashboard notes={notes} onToast={showToast} onNav={setView} user={user}/>}
+          {user&&view==='notes'        && <NotesView notes={notes} setNotes={setNotes} onToast={showToast}/>}
+          {user&&view==='outline'      && <OutlineView onToast={showToast}/>}
+          {user&&view==='practice'     && <PracticeView onToast={showToast}/>}
+          {user&&view==='calendar'     && <CalendarView onToast={showToast}/>}
+          {user&&view==='docs'         && <DocsView docs={docs} setDocs={setDocs} onToast={showToast}/>}
+          {user&&view==='textbooks'    && <TextbooksView onToast={showToast} user={user}/>}
+          {user&&view==='integrations' && <IntegrationsView onToast={showToast} user={user}/>}
+          {user&&view==='settings'     && <SettingsView onToast={showToast}/>}
+          {user&&view==='apis'         && <APIView/>}
         </div>
       </div>
       <Toasts items={toasts}/>
