@@ -527,6 +527,13 @@ function useToast(){
   return [ts,show];
 }
 
+function useDebouncedEffect(effect,deps,delay){
+  useEffect(()=>{
+    const t=setTimeout(effect,delay);
+    return()=>clearTimeout(t);
+  },[...deps,delay]);
+}
+
 /* ═══════════════ SHARED COMPONENTS ══════════════ */
 function Toasts({items}){
   return <div className="toast-stack">{items.map(t=><div key={t.id} className="toast">{t.msg}</div>)}</div>;
@@ -760,9 +767,9 @@ function Dashboard({notes,onToast,onNav,user}){
     }catch{}
   },[]);
 
-  useEffect(()=>{
+  useDebouncedEffect(()=>{
     try{localStorage.setItem(DASH_KEY,JSON.stringify(widgets.map(w=>({id:w.id,on:w.on}))));}catch{}
-  },[widgets]);
+  },[widgets],220);
 
   useEffect(()=>{
     const cal=readJSON(CAL_KEY,{});
@@ -978,9 +985,9 @@ function NotesView({notes,setNotes,onToast,user}){
     }
   },[NOTES_META_KEY]);
 
-  useEffect(()=>{
+  useDebouncedEffect(()=>{
     writeJSON(NOTES_META_KEY,{extraCourses,extraTopics});
-  },[extraCourses,extraTopics,NOTES_META_KEY]);
+  },[extraCourses,extraTopics,NOTES_META_KEY],260);
 
   useEffect(()=>{
     if(activeNote?.type==='brief'){
@@ -1377,6 +1384,7 @@ function OutlineView({onToast,user,notes,docs}){
   const OUTLINES_KEY=`lexnotes:${user?.id||'anon'}:outlines`;
   const NOTES_META_KEY=`lexnotes:${user?.id||'anon'}:notes-meta`;
   const editorRef=useRef(null);
+  const saveTimerRef=useRef(null);
   const [courses,setCourses]=useState([]);
   const [courseId,setCourseId]=useState('');
   const [outlines,setOutlines]=useState(()=>readJSON(OUTLINES_KEY,{}));
@@ -1398,7 +1406,7 @@ function OutlineView({onToast,user,notes,docs}){
     if(!courseId&&list[0])setCourseId(list[0].id);
   },[notes,docs,NOTES_META_KEY,courseId]);
 
-  useEffect(()=>{writeJSON(OUTLINES_KEY,outlines);},[outlines,OUTLINES_KEY]);
+  useDebouncedEffect(()=>{writeJSON(OUTLINES_KEY,outlines);},[outlines,OUTLINES_KEY],350);
 
   useEffect(()=>{
     if(!editorRef.current)return;
@@ -1410,6 +1418,13 @@ function OutlineView({onToast,user,notes,docs}){
     const html=editorRef.current.innerHTML||'';
     setOutlines(p=>({...p,[courseId]:{...(p[courseId]||{}),html,updatedAt:new Date().toISOString()}}));
   }
+
+  function queueSaveCurrent(){
+    clearTimeout(saveTimerRef.current);
+    saveTimerRef.current=setTimeout(saveCurrent,220);
+  }
+
+  useEffect(()=>()=>clearTimeout(saveTimerRef.current),[]);
 
   function cmd(name,value){
     try{document.execCommand(name,false,value);}catch{}
@@ -1505,7 +1520,7 @@ function OutlineView({onToast,user,notes,docs}){
               ref={editorRef}
               contentEditable
               suppressContentEditableWarning
-              onInput={saveCurrent}
+              onInput={queueSaveCurrent}
               style={{minHeight:520,outline:'none',fontSize:13.5,lineHeight:1.8,color:'var(--text)'}}
               placeholder="Start outlining here..."
             />
@@ -1593,8 +1608,8 @@ function CalendarView({onToast,user,onNav}){
   const [customEvents,setCustomEvents]=useState(()=>readJSON(CAL_KEY,{}));
   const [importedEvents,setImportedEvents]=useState(()=>readJSON(IMP_KEY,{}));
   const [connected,setConnected]=useState([]);
-  useEffect(()=>{writeJSON(CAL_KEY,customEvents);},[customEvents]);
-  useEffect(()=>{writeJSON(IMP_KEY,importedEvents);},[importedEvents]);
+  useDebouncedEffect(()=>{writeJSON(CAL_KEY,customEvents);},[customEvents,CAL_KEY],260);
+  useDebouncedEffect(()=>{writeJSON(IMP_KEY,importedEvents);},[importedEvents,IMP_KEY],260);
   useEffect(()=>{
     const integrations=readJSON(INT_KEY,[]);
     setConnected((integrations||[]).filter(i=>i.connected&&['canvas','google','m365'].includes(i.id)));
@@ -1704,6 +1719,7 @@ function CalendarView({onToast,user,onNav}){
 /* ═══════════════ DOCS VIEW ═════════════════════ */
 function DocsView({docs,setDocs,onToast}){
   const docEditorRef=useRef(null);
+  const docSaveTimerRef=useRef(null);
   const [cF,setCF]=useState('all');
   const [tF,setTF]=useState('all');
   const [panCol,setPanCol]=useState(false);
@@ -1769,6 +1785,13 @@ function DocsView({docs,setDocs,onToast}){
     if(!activeDoc)return;
     updateDoc(activeDoc.id,{content:{...(activeDoc.content||{}),html:v}});
   }
+
+  function queueDocHtml(v){
+    clearTimeout(docSaveTimerRef.current);
+    docSaveTimerRef.current=setTimeout(()=>setDocHtml(v),220);
+  }
+
+  useEffect(()=>()=>clearTimeout(docSaveTimerRef.current),[]);
 
   function docCmd(cmd,val){
     try{document.execCommand(cmd,false,val);}catch{}
@@ -1970,7 +1993,7 @@ function DocsView({docs,setDocs,onToast}){
                     ref={docEditorRef}
                     contentEditable
                     suppressContentEditableWarning
-                    onInput={()=>setDocHtml(docEditorRef.current.innerHTML||'')}
+                    onInput={()=>queueDocHtml(docEditorRef.current.innerHTML||'')}
                     dangerouslySetInnerHTML={{__html:(activeDoc.content&&activeDoc.content.html)||'<p></p>'}}
                     style={{minHeight:420,padding:10,border:'1px solid var(--border)',borderRadius:8,outline:'none',fontFamily:(activeDoc.content&&activeDoc.content.font)||'DM Sans',fontSize:((activeDoc.content&&activeDoc.content.size)||14),lineHeight:1.75}}
                   />
@@ -2096,9 +2119,9 @@ function TextbooksView({onToast,user}){
     if(savedActive)setActiveBook(savedActive);
   },[BOOKS_KEY,ANNS_KEY,ACTIVE_BOOK_KEY]);
 
-  useEffect(()=>{writeJSON(BOOKS_KEY,books);},[books,BOOKS_KEY]);
-  useEffect(()=>{writeJSON(ANNS_KEY,anns);},[anns,ANNS_KEY]);
-  useEffect(()=>{try{localStorage.setItem(ACTIVE_BOOK_KEY,activeBook);}catch{}},[activeBook,ACTIVE_BOOK_KEY]);
+  useDebouncedEffect(()=>{writeJSON(BOOKS_KEY,books);},[books,BOOKS_KEY],280);
+  useDebouncedEffect(()=>{writeJSON(ANNS_KEY,anns);},[anns,ANNS_KEY],280);
+  useDebouncedEffect(()=>{try{localStorage.setItem(ACTIVE_BOOK_KEY,activeBook);}catch{}},[activeBook,ACTIVE_BOOK_KEY],180);
 
   useEffect(()=>{
     function onUp(e){
@@ -2335,9 +2358,9 @@ function IntegrationsView({onToast,user}){
     }catch{}
   },[]);
 
-  useEffect(()=>{
+  useDebouncedEffect(()=>{
     try{localStorage.setItem(INT_KEY,JSON.stringify(ints));}catch{}
-  },[ints]);
+  },[ints,INT_KEY],260);
 
   function openConnect(i){
     setAuthTarget(i);
@@ -2457,9 +2480,9 @@ function SettingsView({onToast,user,onUpdateUser}){
     }
   },[SETTINGS_KEY]);
 
-  useEffect(()=>{
+  useDebouncedEffect(()=>{
     writeJSON(SETTINGS_KEY,{notifs,aiPrefs,display,profile});
-  },[notifs,aiPrefs,display,profile,SETTINGS_KEY]);
+  },[notifs,aiPrefs,display,profile,SETTINGS_KEY],320);
 
   return(
     <div className="view active afu" style={{flexDirection:'column'}}>
@@ -2677,15 +2700,15 @@ function App(){
     else setDocs([]);
   },[user?.id]);
 
-  useEffect(()=>{
+  useDebouncedEffect(()=>{
     if(!user)return;
     writeJSON(`lexnotes:${user.id}:notes`,notes);
-  },[notes,user?.id]);
+  },[notes,user?.id],320);
 
-  useEffect(()=>{
+  useDebouncedEffect(()=>{
     if(!user)return;
     writeJSON(`lexnotes:${user.id}:docs`,docs);
-  },[docs,user?.id]);
+  },[docs,user?.id],320);
 
   if(!authChecked){
     return <div className="app"><div className="main"><div className="content"><div className="view active afu" style={{alignItems:'center',justifyContent:'center'}}>Loading…</div></div></div></div>;
@@ -2781,7 +2804,7 @@ try{window.parent&&window.parent!==window&&window.parent.postMessage({type:'lexn
         'https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js',
         'https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js'
       ],'ReactDOM');
-      await loadScript('/lexnotes-app.compiled.js?v='+Date.now());
+      await loadScript('/lexnotes-app.compiled.js');
     }catch(err){
       showBootError((err&&err.message)||'Unknown startup error');
     }

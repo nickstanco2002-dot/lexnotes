@@ -292,6 +292,12 @@ function useToast() {
   }, []);
   return [ts, show];
 }
+function useDebouncedEffect(effect, deps, delay) {
+  useEffect(() => {
+    const t = setTimeout(effect, delay);
+    return () => clearTimeout(t);
+  }, [...deps, delay]);
+}
 function Toasts({
   items
 }) {
@@ -844,14 +850,14 @@ function Dashboard({
       }));
     } catch {}
   }, []);
-  useEffect(() => {
+  useDebouncedEffect(() => {
     try {
       localStorage.setItem(DASH_KEY, JSON.stringify(widgets.map(w => ({
         id: w.id,
         on: w.on
       }))));
     } catch {}
-  }, [widgets]);
+  }, [widgets], 220);
   useEffect(() => {
     const cal = readJSON(CAL_KEY, {});
     const out = [];
@@ -1362,12 +1368,12 @@ function NotesView({
       if (saved.extraTopics && typeof saved.extraTopics === 'object') setExtraTopics(saved.extraTopics);
     }
   }, [NOTES_META_KEY]);
-  useEffect(() => {
+  useDebouncedEffect(() => {
     writeJSON(NOTES_META_KEY, {
       extraCourses,
       extraTopics
     });
-  }, [extraCourses, extraTopics, NOTES_META_KEY]);
+  }, [extraCourses, extraTopics, NOTES_META_KEY], 260);
   useEffect(() => {
     if (activeNote?.type === 'brief') {
       setBriefDraft({
@@ -2275,6 +2281,7 @@ function OutlineView({
   const OUTLINES_KEY = `lexnotes:${user?.id || 'anon'}:outlines`;
   const NOTES_META_KEY = `lexnotes:${user?.id || 'anon'}:notes-meta`;
   const editorRef = useRef(null);
+  const saveTimerRef = useRef(null);
   const [courses, setCourses] = useState([]);
   const [courseId, setCourseId] = useState('');
   const [outlines, setOutlines] = useState(() => readJSON(OUTLINES_KEY, {}));
@@ -2305,9 +2312,9 @@ function OutlineView({
     setCourses(list);
     if (!courseId && list[0]) setCourseId(list[0].id);
   }, [notes, docs, NOTES_META_KEY, courseId]);
-  useEffect(() => {
+  useDebouncedEffect(() => {
     writeJSON(OUTLINES_KEY, outlines);
-  }, [outlines, OUTLINES_KEY]);
+  }, [outlines, OUTLINES_KEY], 350);
   useEffect(() => {
     if (!editorRef.current) return;
     editorRef.current.innerHTML = outlines[courseId]?.html || '';
@@ -2324,6 +2331,11 @@ function OutlineView({
       }
     }));
   }
+  function queueSaveCurrent() {
+    clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(saveCurrent, 220);
+  }
+  useEffect(() => () => clearTimeout(saveTimerRef.current), []);
   function cmd(name, value) {
     try {
       document.execCommand(name, false, value);
@@ -2558,7 +2570,7 @@ function OutlineView({
     ref: editorRef,
     contentEditable: true,
     suppressContentEditableWarning: true,
-    onInput: saveCurrent,
+    onInput: queueSaveCurrent,
     style: {
       minHeight: 520,
       outline: 'none',
@@ -2712,12 +2724,12 @@ function CalendarView({
   const [customEvents, setCustomEvents] = useState(() => readJSON(CAL_KEY, {}));
   const [importedEvents, setImportedEvents] = useState(() => readJSON(IMP_KEY, {}));
   const [connected, setConnected] = useState([]);
-  useEffect(() => {
+  useDebouncedEffect(() => {
     writeJSON(CAL_KEY, customEvents);
-  }, [customEvents]);
-  useEffect(() => {
+  }, [customEvents, CAL_KEY], 260);
+  useDebouncedEffect(() => {
     writeJSON(IMP_KEY, importedEvents);
-  }, [importedEvents]);
+  }, [importedEvents, IMP_KEY], 260);
   useEffect(() => {
     const integrations = readJSON(INT_KEY, []);
     setConnected((integrations || []).filter(i => i.connected && ['canvas', 'google', 'm365'].includes(i.id)));
@@ -2929,6 +2941,7 @@ function DocsView({
   onToast
 }) {
   const docEditorRef = useRef(null);
+  const docSaveTimerRef = useRef(null);
   const [cF, setCF] = useState('all');
   const [tF, setTF] = useState('all');
   const [panCol, setPanCol] = useState(false);
@@ -3036,6 +3049,11 @@ function DocsView({
       }
     });
   }
+  function queueDocHtml(v) {
+    clearTimeout(docSaveTimerRef.current);
+    docSaveTimerRef.current = setTimeout(() => setDocHtml(v), 220);
+  }
+  useEffect(() => () => clearTimeout(docSaveTimerRef.current), []);
   function docCmd(cmd, val) {
     try {
       document.execCommand(cmd, false, val);
@@ -3534,7 +3552,7 @@ function DocsView({
     ref: docEditorRef,
     contentEditable: true,
     suppressContentEditableWarning: true,
-    onInput: () => setDocHtml(docEditorRef.current.innerHTML || ''),
+    onInput: () => queueDocHtml(docEditorRef.current.innerHTML || ''),
     dangerouslySetInnerHTML: {
       __html: activeDoc.content && activeDoc.content.html || '<p></p>'
     },
@@ -3780,17 +3798,17 @@ function TextbooksView({
     if (Array.isArray(savedAnns) && savedAnns.length) setAnns(savedAnns);
     if (savedActive) setActiveBook(savedActive);
   }, [BOOKS_KEY, ANNS_KEY, ACTIVE_BOOK_KEY]);
-  useEffect(() => {
+  useDebouncedEffect(() => {
     writeJSON(BOOKS_KEY, books);
-  }, [books, BOOKS_KEY]);
-  useEffect(() => {
+  }, [books, BOOKS_KEY], 280);
+  useDebouncedEffect(() => {
     writeJSON(ANNS_KEY, anns);
-  }, [anns, ANNS_KEY]);
-  useEffect(() => {
+  }, [anns, ANNS_KEY], 280);
+  useDebouncedEffect(() => {
     try {
       localStorage.setItem(ACTIVE_BOOK_KEY, activeBook);
     } catch {}
-  }, [activeBook, ACTIVE_BOOK_KEY]);
+  }, [activeBook, ACTIVE_BOOK_KEY], 180);
   useEffect(() => {
     function onUp(e) {
       const pop = document.querySelector('.selpop');
@@ -4344,11 +4362,11 @@ function IntegrationsView({
       if (Array.isArray(saved) && saved.length) setInts(saved);
     } catch {}
   }, []);
-  useEffect(() => {
+  useDebouncedEffect(() => {
     try {
       localStorage.setItem(INT_KEY, JSON.stringify(ints));
     } catch {}
-  }, [ints]);
+  }, [ints, INT_KEY], 260);
   function openConnect(i) {
     setAuthTarget(i);
     setCreds(i.creds || {
@@ -4621,14 +4639,14 @@ function SettingsView({
       if (saved.profile) setProfile(saved.profile);
     }
   }, [SETTINGS_KEY]);
-  useEffect(() => {
+  useDebouncedEffect(() => {
     writeJSON(SETTINGS_KEY, {
       notifs,
       aiPrefs,
       display,
       profile
     });
-  }, [notifs, aiPrefs, display, profile, SETTINGS_KEY]);
+  }, [notifs, aiPrefs, display, profile, SETTINGS_KEY], 320);
   return React.createElement("div", {
     className: "view active afu",
     style: {
@@ -5136,14 +5154,14 @@ function App() {
     if (Array.isArray(n) && n.length) setNotes(n);else setNotes([]);
     if (Array.isArray(d) && d.length) setDocs(d);else setDocs([]);
   }, [user?.id]);
-  useEffect(() => {
+  useDebouncedEffect(() => {
     if (!user) return;
     writeJSON(`lexnotes:${user.id}:notes`, notes);
-  }, [notes, user?.id]);
-  useEffect(() => {
+  }, [notes, user?.id], 320);
+  useDebouncedEffect(() => {
     if (!user) return;
     writeJSON(`lexnotes:${user.id}:docs`, docs);
-  }, [docs, user?.id]);
+  }, [docs, user?.id], 320);
   if (!authChecked) {
     return React.createElement("div", {
       className: "app"

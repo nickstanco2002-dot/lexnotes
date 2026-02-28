@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function Home() {
   const [ready, setReady] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [frameLoaded, setFrameLoaded] = useState(false);
-  const frameSrc = useMemo(() => `/lexnotes-skeleton.html?v=${Date.now()}`, []);
+  const frameSrc = "/lexnotes-skeleton.html";
 
   useEffect(() => {
     function onMessage(e: MessageEvent) {
