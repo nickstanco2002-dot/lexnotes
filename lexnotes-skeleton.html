@@ -452,51 +452,13 @@ function downloadFile(name,content,type='text/plain'){
 }
 
 /* ═══════════════ DATA ═══════════════════════════════ */
-const COURSES=[
-  {id:'torts',     label:'Torts',          color:'#d95f5f',
-   topics:[{id:'negligence',label:'Negligence',n:5},{id:'assault',label:'Assault & Battery',n:3},{id:'nied',label:'NIED',n:2},{id:'products',label:'Products Liability',n:2}]},
-  {id:'contracts', label:'Contracts',       color:'#5283e0',
-   topics:[{id:'formation',label:'Formation',n:6},{id:'consideration',label:'Consideration',n:4},{id:'damages',label:'Damages',n:5},{id:'breach',label:'Breach & Remedies',n:3}]},
-  {id:'crim',      label:'Crim Law',        color:'#4aab78',
-   topics:[{id:'mensrea',label:'Mens Rea',n:4},{id:'actusreus',label:'Actus Reus',n:3},{id:'homicide',label:'Homicide',n:2}]},
-  {id:'civpro',    label:'Civil Procedure', color:'#c9a84c',
-   topics:[{id:'jurisdiction',label:'Jurisdiction',n:4},{id:'pleading',label:'Pleading',n:3},{id:'discovery',label:'Discovery',n:4}]},
-  {id:'conlaw',    label:'Con Law',         color:'#8f67d8',
-   topics:[{id:'dueprocess',label:'Due Process',n:3},{id:'equal',label:'Equal Protection',n:3},{id:'commerce',label:'Commerce Clause',n:2}]},
-];
+const COURSES=[];
 
-const INIT_NOTES=[
-  {id:1,course:'torts',topic:'negligence',type:'brief',title:'Palsgraf v. Long Island RR',citation:'248 N.Y. 339',preview:'Proximate cause — duty owed only to foreseeable plaintiffs',date:'Feb 13',hasAudio:false,hasMerge:false,
-   bf:{facts:'A railroad guard helped a passenger board a moving train, knocking loose a package of fireworks that exploded, causing scales to fall on Palsgraf standing far away.',issue:'Whether a defendant owes a duty to a plaintiff not in the foreseeable zone of danger.',rule:'No duty to unforeseeable plaintiffs. Cardozo: duty is relational, limited to the foreseeable zone of danger.',reasoning:'Risk defines duty. Andrews dissent: duty owed to all society, proximate cause limits liability.',notes:'KEY: Argue BOTH Cardozo AND Andrews on exams. Cardozo = was plaintiff foreseeable? Andrews = was harm too remote?'}},
-  {id:2,course:'torts',topic:'negligence',type:'class',title:'Negligence — Feb 12',preview:'Reasonable person standard, Hand Formula, Carroll Towing',date:'Feb 12',hasAudio:true,hasMerge:true,
-   content:'Prof. Chen: "Not a perfect person, not a genius, not a fool."\n\nOBJECTIVE standard — not what this D could do, but what a reasonable person would.\n\nHand Formula (Carroll Towing):\n  B < P × L → negligence\n  B = cost of precaution\n  P = probability of harm\n  L = magnitude of loss'},
-  {id:3,course:'torts',topic:'negligence',type:'auto',title:'Lecture — Feb 10 (Auto)',preview:'AI transcription: duty element, foreseeability analysis',date:'Feb 10 · 47 min',hasAudio:false,hasMerge:true,
-   content:'[00:00] Duty element overview.\n[02:14] Reasonable person = external, objective test.\n[05:30] Vaughan v. Menlove — "honest best judgment" rejected.\n[11:20] HAND FORMULA: B < P × L\n[18:45] Carroll Towing hypo — barge unattended.\n[31:00] B includes ANY cost, not just economic.\n[39:15] Transition to proximate cause.'},
-  {id:4,course:'torts',topic:'negligence',type:'brief',title:'Bolton v. Stone',preview:'Cricket ball struck pedestrian — probability too low',date:'Feb 10',hasAudio:false,hasMerge:false,
-   bf:{facts:'Cricket ball struck pedestrian. Ball had cleared fence only rarely in 30 years.',issue:'Negligence when probability of harm is very low?',rule:'No negligence when risk so small a reasonable person would not guard against it.',reasoning:'Lord Reid: balance risk against cost of guarding against it.',notes:'Compare Hand Formula: when P is tiny, B < PL may fail even with low B.'}},
-  {id:5,course:'contracts',topic:'consideration',type:'brief',title:'Hamer v. Sidway',preview:'Uncle promised nephew money to refrain from bad habits',date:'Feb 8',hasAudio:false,hasMerge:false,
-   bf:{facts:'Uncle promised $5,000 if nephew refrained from drinking, tobacco, swearing until 21.',issue:'Does forbearance from a legal right constitute valid consideration?',rule:'Forbearance of a legal right is valid consideration.',reasoning:'The nephew had the legal right to drink and gamble; forbearance was detriment sufficient for consideration.',notes:'Courts do not inquire into adequacy of consideration, only its existence.'}},
-  {id:6,course:'contracts',topic:'damages',type:'brief',title:'Hadley v. Baxendale',preview:'Consequential damages must be foreseeable at formation',date:'Feb 6',hasAudio:false,hasMerge:false,
-   bf:{facts:'Mill owner sent broken shaft to carrier. Delivery delayed. Mill lost profits.',issue:'Are consequential damages recoverable when unforeseeable at contract formation?',rule:'Consequential damages only if foreseeable to both parties at formation.',reasoning:'Carrier did not know mill depended on shaft — lost profits not within their contemplation.',notes:'Two-prong: (1) naturally arising from breach OR (2) within parties\' contemplation at formation.'}},
-];
+const INIT_NOTES=[];
 
-const INIT_DOCS=[
-  {id:1,icon:'📝',name:'Torts Outline — Final Exam',type:'docx',course:'torts',modified:'Feb 12'},
-  {id:2,icon:'📊',name:'Case Chart — Negligence',type:'xlsx',course:'torts',modified:'Feb 10'},
-  {id:3,icon:'📝',name:'Legal Memo — Contract Formation',type:'docx',course:'contracts',modified:'Feb 9'},
-  {id:4,icon:'📋',name:'Issue Spotter Checklist',type:'form',course:'contracts',modified:'Feb 8'},
-  {id:5,icon:'📝',name:'Crim Law Exam Outline',type:'docx',course:'crim',modified:'Feb 7'},
-  {id:6,icon:'📊',name:'Grade Tracker — Spring 2025',type:'xlsx',course:'',modified:'Feb 5'},
-  {id:7,icon:'📋',name:'Civ Pro Jurisdiction Checklist',type:'form',course:'civpro',modified:'Feb 3'},
-  {id:8,icon:'📝',name:'Con Law — Commerce Clause Outline',type:'docx',course:'conlaw',modified:'Feb 1'},
-];
+const INIT_DOCS=[];
 
-const INIT_BOOKS=[
-  {id:'prosser',title:'Prosser & Keeton on Torts',sub:'Torts · 5th Ed.',icon:'📕',bg:'rgba(217,95,95,.14)',prog:34},
-  {id:'dressler',title:'Dressler — Criminal Law',sub:'Crim Law · 6th Ed.',icon:'📗',bg:'rgba(74,171,120,.14)',prog:58},
-  {id:'farnsworth',title:'Farnsworth on Contracts',sub:'Contracts · 3rd Ed.',icon:'📘',bg:'rgba(82,131,224,.14)',prog:21},
-  {id:'freer',title:'Freer — Civil Procedure',sub:'Civ Pro · 2nd Ed.',icon:'📙',bg:'rgba(201,168,76,.14)',prog:12},
-];
+const INIT_BOOKS=[];
 
 const INIT_ANNOTATIONS=[
   {id:1,quote:'"reasonable person would have behaved under the same or similar circumstances"',note:'Core def — start every negligence IRAC here',color:'yellow',page:47},
@@ -615,7 +577,7 @@ function Toggle({on,onToggle}){
   );
 }
 
-function AuthScreen({onAuth}){
+function AuthScreen({onAuth,existingUser,onSwitch}){
   const [mode,setMode]=useState('login');
   const [name,setName]=useState('');
   const [email,setEmail]=useState('');
@@ -653,6 +615,16 @@ function AuthScreen({onAuth}){
           </div>
         </div>
         <div className="mbody">
+          {existingUser&&(
+            <div style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:8,padding:10}}>
+              <div style={{fontSize:11,color:'var(--muted)'}}>Signed in previously as</div>
+              <div style={{fontSize:12.5,fontWeight:600}}>{existingUser.name} · {existingUser.email}</div>
+              <div style={{display:'flex',gap:8,marginTop:8}}>
+                <button className="btn btn-primary btn-sm" style={{flex:1}} onClick={()=>onAuth(existingUser)}>Continue</button>
+                <button className="btn btn-ghost btn-sm" style={{flex:1}} onClick={onSwitch}>Use another account</button>
+              </div>
+            </div>
+          )}
           <div className="choices">
             <button className={`choice${mode==='login'?' picked':''}`} onClick={()=>{setMode('login');setErr('');}}>Log In</button>
             <button className={`choice${mode==='signup'?' picked':''}`} onClick={()=>{setMode('signup');setErr('');}}>Create Account</button>
@@ -921,12 +893,12 @@ function Dashboard({notes,onToast,onNav,user}){
 /* ═══════════════ NOTES VIEW ════════════════════ */
 function NotesView({notes,setNotes,onToast,user}){
   const NOTES_META_KEY=`lexnotes:${user?.id||'anon'}:notes-meta`;
-  const [activeCourse,setActiveCourse]=useState('torts');
-  const [activeTopic,setActiveTopic]=useState('negligence');
+  const [activeCourse,setActiveCourse]=useState('');
+  const [activeTopic,setActiveTopic]=useState('');
   const [extraCourses,setExtraCourses]=useState([]);
   const [extraTopics,setExtraTopics]=useState({});
-  const [activeId,setActiveId]=useState(1);
-  const [openCourses,setOpenCourses]=useState({torts:true});
+  const [activeId,setActiveId]=useState(null);
+  const [openCourses,setOpenCourses]=useState({});
   const [navCol,setNavCol]=useState(false);
   const [listCol,setListCol]=useState(false);
   const [aiOpen,setAiOpen]=useState(true);
@@ -975,6 +947,18 @@ function NotesView({notes,setNotes,onToast,user}){
   ];
 
   useEffect(()=>{
+    const saved=readJSON(NOTES_META_KEY,null);
+    if(saved){
+      if(Array.isArray(saved.extraCourses))setExtraCourses(saved.extraCourses);
+      if(saved.extraTopics&&typeof saved.extraTopics==='object')setExtraTopics(saved.extraTopics);
+    }
+  },[NOTES_META_KEY]);
+
+  useEffect(()=>{
+    writeJSON(NOTES_META_KEY,{extraCourses,extraTopics});
+  },[extraCourses,extraTopics,NOTES_META_KEY]);
+
+  useEffect(()=>{
     if(activeNote?.type==='brief'){
       setBriefDraft({
         facts:activeNote.bf?.facts||'',
@@ -987,6 +971,33 @@ function NotesView({notes,setNotes,onToast,user}){
       setBriefDraft(null);
     }
   },[activeId,activeNote?.type]);
+
+  useEffect(()=>{
+    const firstCourse=allCourses[0];
+    if(!firstCourse){
+      if(activeCourse!=='')setActiveCourse('');
+      if(activeTopic!=='')setActiveTopic('');
+      return;
+    }
+    const topics=[...(firstCourse.topics||[]),...(extraTopics[firstCourse.id]||[])];
+    if(!activeCourse||!allCourses.some(c=>c.id===activeCourse)){
+      setActiveCourse(firstCourse.id);
+      setOpenCourses(p=>({...p,[firstCourse.id]:true}));
+      setActiveTopic(topics[0]?.id||'');
+      return;
+    }
+    const selectedCourse=allCourses.find(c=>c.id===activeCourse);
+    const selectedTopics=[...(selectedCourse?.topics||[]),...(extraTopics[selectedCourse?.id]||[])];
+    if(activeTopic&&!selectedTopics.some(t=>t.id===activeTopic))setActiveTopic(selectedTopics[0]?.id||'');
+  },[allCourses,activeCourse,activeTopic,extraTopics]);
+
+  useEffect(()=>{
+    if(notes.length===0){
+      if(activeId!==null)setActiveId(null);
+      return;
+    }
+    if(activeId===null||!notes.some(n=>n.id===activeId))setActiveId(notes[0].id);
+  },[notes,activeId]);
 
   function createNote(){
     if(!newTitle.trim()){onToast('Enter a title');return;}
@@ -2254,6 +2265,8 @@ function App(){
   const [docs,setDocs]=useState(INIT_DOCS);
   const [sidebarMini,setSidebarMini]=useState(false);
   const [user,setUser]=useState(null);
+  const [existingUser,setExistingUser]=useState(null);
+  const [authRequired,setAuthRequired]=useState(true);
   const [authChecked,setAuthChecked]=useState(false);
   const [toasts,showToast]=useToast();
 
@@ -2262,7 +2275,7 @@ function App(){
     const users=readJSON(USERS_KEY,[]);
     if(session?.id){
       const u=users.find(x=>x.id===session.id);
-      if(u)setUser(u);
+      if(u)setExistingUser(u);
     }
     setAuthChecked(true);
   },[]);
@@ -2270,6 +2283,8 @@ function App(){
   function logout(){
     try{localStorage.removeItem(SESSION_KEY);}catch{}
     setUser(null);
+    setExistingUser(null);
+    setAuthRequired(true);
     setView('dashboard');
     showToast('Logged out');
   }
@@ -2314,23 +2329,35 @@ function App(){
     return <div className="app"><div className="main"><div className="content"><div className="view active afu" style={{alignItems:'center',justifyContent:'center'}}>Loading…</div></div></div></div>;
   }
 
+  const showAuth=!user||authRequired;
+
   return(
     <div className="app">
-      {user?<Sidebar view={view} onNav={setView} mini={sidebarMini} setMini={setSidebarMini} user={user} onLogout={logout}/>:null}
+      {!showAuth?<Sidebar view={view} onNav={setView} mini={sidebarMini} setMini={setSidebarMini} user={user} onLogout={logout}/>:null}
       <div className="main">
-        {user?<Topbar view={view} onNew={handleNew} onToast={showToast}/>:null}
+        {!showAuth?<Topbar view={view} onNew={handleNew} onToast={showToast}/>:null}
         <div className="content">
-          {!user && <AuthScreen onAuth={u=>{setUser(u);showToast(`Welcome, ${u.name}`);}}/>}
-          {user&&view==='dashboard'    && <Dashboard notes={notes} onToast={showToast} onNav={setView} user={user}/>}
-          {user&&view==='notes'        && <NotesView notes={notes} setNotes={setNotes} onToast={showToast} user={user}/>}
-          {user&&view==='outline'      && <OutlineView onToast={showToast}/>}
-          {user&&view==='practice'     && <PracticeView onToast={showToast} user={user}/>}
-          {user&&view==='calendar'     && <CalendarView onToast={showToast} user={user}/>}
-          {user&&view==='docs'         && <DocsView docs={docs} setDocs={setDocs} onToast={showToast}/>}
-          {user&&view==='textbooks'    && <TextbooksView onToast={showToast} user={user}/>}
-          {user&&view==='integrations' && <IntegrationsView onToast={showToast} user={user}/>}
-          {user&&view==='settings'     && <SettingsView onToast={showToast} user={user} onUpdateUser={updateUser}/>}
-          {user&&view==='apis'         && <APIView/>}
+          {showAuth && <AuthScreen
+            existingUser={existingUser}
+            onSwitch={()=>{setExistingUser(null);try{localStorage.removeItem(SESSION_KEY);}catch{}}
+            onAuth={u=>{
+              writeJSON(SESSION_KEY,{id:u.id});
+              setUser(u);
+              setExistingUser(null);
+              setAuthRequired(false);
+              showToast(`Welcome, ${u.name}`);
+            }}
+          />}
+          {!showAuth&&view==='dashboard'    && <Dashboard notes={notes} onToast={showToast} onNav={setView} user={user}/>}
+          {!showAuth&&view==='notes'        && <NotesView notes={notes} setNotes={setNotes} onToast={showToast} user={user}/>}
+          {!showAuth&&view==='outline'      && <OutlineView onToast={showToast}/>}
+          {!showAuth&&view==='practice'     && <PracticeView onToast={showToast} user={user}/>}
+          {!showAuth&&view==='calendar'     && <CalendarView onToast={showToast} user={user}/>}
+          {!showAuth&&view==='docs'         && <DocsView docs={docs} setDocs={setDocs} onToast={showToast}/>}
+          {!showAuth&&view==='textbooks'    && <TextbooksView onToast={showToast} user={user}/>}
+          {!showAuth&&view==='integrations' && <IntegrationsView onToast={showToast} user={user}/>}
+          {!showAuth&&view==='settings'     && <SettingsView onToast={showToast} user={user} onUpdateUser={updateUser}/>}
+          {!showAuth&&view==='apis'         && <APIView/>}
         </div>
       </div>
       <Toasts items={toasts}/>
@@ -2342,14 +2369,3 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
 </body>
 </html>
-  useEffect(()=>{
-    const saved=readJSON(NOTES_META_KEY,null);
-    if(saved){
-      if(Array.isArray(saved.extraCourses))setExtraCourses(saved.extraCourses);
-      if(saved.extraTopics&&typeof saved.extraTopics==='object')setExtraTopics(saved.extraTopics);
-    }
-  },[NOTES_META_KEY]);
-
-  useEffect(()=>{
-    writeJSON(NOTES_META_KEY,{extraCourses,extraTopics});
-  },[extraCourses,extraTopics,NOTES_META_KEY]);
