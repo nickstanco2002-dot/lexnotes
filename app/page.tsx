@@ -3,7 +3,14 @@ export default function Home() {
     <iframe
       src="/lexnotes-skeleton.html"
       title="LexNotes Skeleton"
-      className="fixed inset-0 block h-[100dvh] w-screen border-0"
+      style={{
+        position: "fixed",
+        inset: 0,
+        width: "100vw",
+        height: "100vh",
+        border: "0",
+        display: "block",
+      }}
     />
   );
 }
