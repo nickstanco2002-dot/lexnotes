@@ -1373,92 +1373,142 @@ function NotesView({notes,setNotes,onToast,user}){
 }
 
 /* ═══════════════ OUTLINE VIEW ══════════════════ */
-function OutlineView({onToast}){
-  const [tab,setTab]=useState('contracts');
-  const [updatedAt,setUpdatedAt]=useState('Feb 13, 2025');
-  const tabs=['contracts','torts','crim','civpro','conlaw'];
-  const outlineText=`Contracts I — Master Outline
+function OutlineView({onToast,user,notes,docs}){
+  const OUTLINES_KEY=`lexnotes:${user?.id||'anon'}:outlines`;
+  const NOTES_META_KEY=`lexnotes:${user?.id||'anon'}:notes-meta`;
+  const editorRef=useRef(null);
+  const [courses,setCourses]=useState([]);
+  const [courseId,setCourseId]=useState('');
+  const [outlines,setOutlines]=useState(()=>readJSON(OUTLINES_KEY,{}));
+  const [busy,setBusy]=useState(false);
 
-I. Formation
-A. Offer
-B. Acceptance
-C. Consideration
+  useEffect(()=>{
+    const meta=readJSON(NOTES_META_KEY,{});
+    const extra=Array.isArray(meta?.extraCourses)?meta.extraCourses:[];
+    const byId={};
+    extra.forEach(c=>{if(c&&c.id)byId[c.id]={id:c.id,label:c.label||c.id};});
+    (notes||[]).forEach(n=>{
+      if(n?.course&&!byId[n.course])byId[n.course]={id:n.course,label:n.course.replace(/-/g,' ').replace(/\b\w/g,m=>m.toUpperCase())};
+    });
+    (docs||[]).forEach(d=>{
+      if(d?.course&&!byId[d.course])byId[d.course]={id:d.course,label:d.course.replace(/-/g,' ').replace(/\b\w/g,m=>m.toUpperCase())};
+    });
+    const list=Object.values(byId);
+    setCourses(list);
+    if(!courseId&&list[0])setCourseId(list[0].id);
+  },[notes,docs,NOTES_META_KEY,courseId]);
 
-II. Breach & Remedies
-A. Material vs Minor Breach
-B. Expectation Damages
-C. Consequential Damages
-D. Reliance & Restitution
+  useEffect(()=>{writeJSON(OUTLINES_KEY,outlines);},[outlines,OUTLINES_KEY]);
 
-III. Defenses
-A. Fraud/Duress
-B. Mistake
-C. Impossibility/Frustration`;
+  useEffect(()=>{
+    if(!editorRef.current)return;
+    editorRef.current.innerHTML=outlines[courseId]?.html||'';
+  },[courseId]);
+
+  function saveCurrent(){
+    if(!courseId||!editorRef.current)return;
+    const html=editorRef.current.innerHTML||'';
+    setOutlines(p=>({...p,[courseId]:{...(p[courseId]||{}),html,updatedAt:new Date().toISOString()}}));
+  }
+
+  function cmd(name,value){
+    try{document.execCommand(name,false,value);}catch{}
+    saveCurrent();
+  }
+
+  function insertAtCursor(text){
+    const safe=esc(text).replace(/\n/g,'<br/>');
+    cmd('insertHTML',`<p>${safe}</p>`);
+  }
 
   function exportOutline(ext){
-    const safeCourse=(COURSES.find(c=>c.id===tab)?.label||tab).replace(/\s+/g,'-').toLowerCase();
+    if(!courseId){onToast('Select a course first');return;}
+    const safeCourse=(courses.find(c=>c.id===courseId)?.label||courseId).replace(/\s+/g,'-').toLowerCase();
     const name=`${safeCourse}-outline.${ext}`;
-    downloadFile(name,outlineText,ext==='docx'?'application/vnd.openxmlformats-officedocument.wordprocessingml.document':'text/plain');
+    const html=outlines[courseId]?.html||'';
+    const tmp=document.createElement('div');tmp.innerHTML=html;
+    const text=tmp.innerText||'';
+    downloadFile(name,text,ext==='docx'?'application/vnd.openxmlformats-officedocument.wordprocessingml.document':'text/plain');
     onToast(`Exported ${name}`);
   }
 
-  function regenerate(){
-    setUpdatedAt(new Date().toLocaleString());
-    onToast('Outline regenerated from your latest notes');
+  async function autoOutline(){
+    if(!courseId){onToast('Select a course first');return;}
+    setBusy(true);
+    try{
+      const courseNotes=(notes||[]).filter(n=>n.course===courseId).map(n=>({
+        id:n.id,title:n.title,type:n.type,topic:n.topic,content:n.content||'',brief:n.bf||null,preview:n.preview||''
+      }));
+      const courseDocs=(docs||[]).filter(d=>d.course===courseId||!d.course).map(d=>({
+        id:d.id,name:d.name,type:d.type,content:d.content||null
+      }));
+      const payload={courseId,notes:{notes:courseNotes,docs:courseDocs,transcripts:courseNotes.filter(n=>n.type==='auto')}};
+      const res=await fetch('/api/generate-outline',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok)throw new Error(data?.error||'Generation failed');
+      const outlineText=(data?.outline||'').trim();
+      if(!outlineText)throw new Error('No outline content returned');
+      const html=esc(outlineText).replace(/\n\n/g,'</p><p>').replace(/\n/g,'<br/>');
+      const wrapped=`<p>${html}</p>`;
+      setOutlines(p=>({...p,[courseId]:{...(p[courseId]||{}),html:wrapped,updatedAt:new Date().toISOString(),auto:true}}));
+      if(editorRef.current)editorRef.current.innerHTML=wrapped;
+      onToast('AI outline generated');
+    }catch(err){
+      onToast('Auto-outline failed: '+(err?.message||'Unknown error'));
+    }finally{setBusy(false);}
   }
+
+  const courseNotes=(notes||[]).filter(n=>n.course===courseId).slice(0,25);
+  const current=outlines[courseId]||{};
 
   return(
     <div className="view active afu" style={{flexDirection:'column'}}>
-      <div style={{padding:'10px 20px',borderBottom:'1px solid var(--border)',background:'var(--surface)',display:'flex',alignItems:'center',gap:8,flexShrink:0,flexWrap:'wrap'}}>
+      <div style={{padding:'10px 14px',borderBottom:'1px solid var(--border)',background:'var(--surface)',display:'flex',alignItems:'center',gap:8,flexShrink:0,flexWrap:'wrap'}}>
         <div style={{display:'flex',gap:5,flex:1,flexWrap:'wrap'}}>
-          {tabs.map(t=>(
-            <button key={t} onClick={()=>setTab(t)} style={{padding:'5px 11px',borderRadius:6,border:'1px solid var(--border)',background:tab===t?'var(--accent-dim)':'transparent',color:tab===t?'var(--accent)':'var(--muted)',fontSize:11.5,cursor:'pointer',transition:'all .12s',textTransform:'capitalize'}}>
-              {COURSES.find(c=>c.id===t)?.label||t}
+          {courses.length===0?<span style={{fontSize:11,color:'var(--dim)'}}>No courses yet. Create a course in Notes first.</span>:courses.map(c=>(
+            <button key={c.id} onClick={()=>setCourseId(c.id)} style={{padding:'5px 11px',borderRadius:6,border:'1px solid var(--border)',background:courseId===c.id?'var(--accent-dim)':'transparent',color:courseId===c.id?'var(--accent)':'var(--muted)',fontSize:11.5,cursor:'pointer',transition:'all .12s'}}>
+              {c.label}
             </button>
           ))}
         </div>
+        <button className="btn btn-ghost btn-sm" onClick={()=>cmd('bold')}>B</button>
+        <button className="btn btn-ghost btn-sm" onClick={()=>cmd('italic')}><i>I</i></button>
+        <button className="btn btn-ghost btn-sm" onClick={()=>cmd('underline')}><u>U</u></button>
+        <button className="btn btn-ghost btn-sm" onClick={()=>cmd('insertUnorderedList')}>• List</button>
+        <button className="btn btn-ghost btn-sm" onClick={()=>cmd('insertOrderedList')}>1. List</button>
+        <button className="btn btn-ghost btn-sm" onClick={()=>cmd('formatBlock','<h2>')}>H2</button>
+        <button className="btn btn-ghost btn-sm" onClick={()=>cmd('formatBlock','<p>')}>P</button>
         <button className="btn btn-ghost btn-sm" onClick={()=>exportOutline('pdf')}>⤓ PDF</button>
         <button className="btn btn-ghost btn-sm" onClick={()=>exportOutline('docx')}>⤓ DOCX</button>
-        <button className="btn btn-primary btn-sm" onClick={regenerate}>⚡ Regenerate</button>
+        <button className="btn btn-primary btn-sm" disabled={busy||!courseId} onClick={autoOutline}>{busy?'Generating…':'⚡ Auto-Outline (AI)'}</button>
       </div>
-      <div style={{flex:1,overflowY:'auto'}}>
-        <div className="outline-doc">
-          <div className="otag">Contracts · AI Auto-Outline</div>
-          <div className="otitle">Contracts I — Master Outline</div>
-          <div className="ometa">38 cases · 18 notes · Prof. Martinez · Updated {updatedAt} · ⚡ AI-generated from your notes</div>
-          <div className="osec">
-            <div className="oh1"><span className="oh1-n">I.</span> Formation of a Contract</div>
-            <div className="oh2">A. Offer</div>
-            <div className="opt">Manifestation of willingness to enter a bargain; must be definite, communicated, and show present intent. (<span className="cite">Restatement § 24</span>)</div>
-            <div className="opt">Advertisements generally not offers but invitations to deal — unless specific and leave nothing open. (<span className="cite">Lefkowitz v. Great Minneapolis Surplus Store</span>)</div>
-            <div className="oh2">B. Acceptance</div>
-            <div className="opt">Mirror image rule (common law): acceptance must match offer exactly. Any variation = rejection + counteroffer.</div>
-            <div className="opt">Mailbox rule: acceptance effective upon dispatch. Revocation effective only upon receipt.</div>
-            <div className="opt">UCC § 2-207 Battle of the Forms: additional terms in acceptance don't necessarily kill the deal for goods contracts.</div>
-            <div className="oh2">C. Consideration</div>
-            <div className="opt">Bargained-for exchange — benefit to promisor or detriment to promisee. (<span className="cite">Hamer v. Sidway</span>)</div>
-            <div className="opt">Pre-existing duty rule: performing a legal obligation already owed is not consideration. (<span className="cite">Alaska Packers v. Domenico</span>)</div>
-            <div className="opt">Past consideration is not valid — the act must be in exchange for the promise.</div>
-          </div>
-          <div className="osec">
-            <div className="oh1"><span className="oh1-n">II.</span> Breach &amp; Remedies</div>
-            <div className="oh2">A. Material vs. Minor Breach</div>
-            <div className="opt">Material breach discharges non-breaching party's duty to perform. Factors: extent of non-performance, likelihood of cure, adequacy of damages. (<span className="cite">Jacob &amp; Youngs v. Kent</span>)</div>
-            <div className="oh2">B. Expectation Damages</div>
-            <div className="opt">Benefit of the bargain — put plaintiff in the position had contract been performed. Most common remedy.</div>
-            <div className="oh2">C. Consequential Damages</div>
-            <div className="opt">Must be foreseeable at formation — either naturally arising from breach or within parties' contemplation. (<span className="cite">Hadley v. Baxendale</span>) ← <em style={{color:'var(--accent)'}}>Your most recent brief</em></div>
-            <div className="oh2">D. Reliance &amp; Restitution</div>
-            <div className="opt">Reliance: restore plaintiff to pre-contract position. Restitution: prevents unjust enrichment — defendant disgorges benefit conferred.</div>
-          </div>
-          <div className="osec">
-            <div className="oh1"><span className="oh1-n">III.</span> Defenses &amp; Excuses</div>
-            <div className="oh2">A. Fraud, Duress, Undue Influence</div>
-            <div className="opt">Grounds to void or voidize a contract. Duress: improper threat leaving no reasonable alternative. (<span className="cite">Austin Instruments v. Loral Corp.</span>)</div>
-            <div className="oh2">B. Mistake</div>
-            <div className="opt">Mutual mistake about a basic assumption → voidable if it materially affects agreed exchange. (<span className="cite">Raffles v. Wichelhaus</span>)</div>
-            <div className="oh2">C. Impossibility / Frustration of Purpose</div>
-            <div className="opt">Impossibility: supervening event makes performance objectively impossible. Frustration: performance possible but purpose is entirely destroyed. (<span className="cite">Krell v. Henry</span>)</div>
+      <div style={{display:'flex',flex:1,overflow:'hidden'}}>
+        <div style={{width:260,borderRight:'1px solid var(--border)',background:'var(--surface)',overflowY:'auto'}}>
+          <div style={{padding:'10px 12px',borderBottom:'1px solid var(--border)',fontSize:10,fontFamily:'JetBrains Mono,monospace',color:'var(--dim)',textTransform:'uppercase',letterSpacing:1}}>Insert from Course Notes</div>
+          {courseNotes.length===0?<div style={{padding:12,fontSize:11,color:'var(--dim)'}}>No notes for this course yet.</div>:courseNotes.map(n=>(
+            <div key={n.id} style={{padding:'8px 10px',borderBottom:'1px solid var(--border)'}}>
+              <div style={{fontSize:11.5,fontWeight:600,marginBottom:3}}>{n.title}</div>
+              <div style={{fontSize:10,color:'var(--muted)',marginBottom:6}}>{n.type} · {n.topic||'general'}</div>
+              <div style={{display:'flex',gap:6}}>
+                <button className="btn btn-ghost btn-sm" onClick={()=>insertAtCursor(`[Case] ${n.title}\n${n.preview||''}`)}>+ Case</button>
+                <button className="btn btn-ghost btn-sm" onClick={()=>insertAtCursor(`[Note] ${n.title}\n${(n.content||'').slice(0,260)}`)}>+ Note</button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{flex:1,overflowY:'auto',padding:18}}>
+          <div className="outline-doc">
+            <div className="otag">{courses.find(c=>c.id===courseId)?.label||'Outline'} · User Draft</div>
+            <div className="otitle">{courses.find(c=>c.id===courseId)?.label||'Course'} Outline</div>
+            <div className="ometa">{courseNotes.length} notes · {docs.filter(d=>d.course===courseId).length} docs · Updated {current.updatedAt?new Date(current.updatedAt).toLocaleString():'Not saved yet'}</div>
+            <div
+              ref={editorRef}
+              contentEditable
+              suppressContentEditableWarning
+              onInput={saveCurrent}
+              style={{minHeight:520,outline:'none',fontSize:13.5,lineHeight:1.8,color:'var(--text)'}}
+              placeholder="Start outlining here..."
+            />
           </div>
         </div>
       </div>
@@ -1653,11 +1703,14 @@ function CalendarView({onToast,user,onNav}){
 
 /* ═══════════════ DOCS VIEW ═════════════════════ */
 function DocsView({docs,setDocs,onToast}){
+  const docEditorRef=useRef(null);
   const [cF,setCF]=useState('all');
   const [tF,setTF]=useState('all');
   const [panCol,setPanCol]=useState(false);
   const [modal,setModal]=useState(false);
   const [activeDocId,setActiveDocId]=useState(null);
+  const [activeCell,setActiveCell]=useState({r:0,c:0});
+  const [formulaBar,setFormulaBar]=useState('');
   const [dName,setDName]=useState('');
   const [dType,setDType]=useState('docx');
   const [dCourse,setDCourse]=useState('');
@@ -1671,7 +1724,7 @@ function DocsView({docs,setDocs,onToast}){
 
   function makeDocContent(type,tmpl){
     if(type==='xlsx'){
-      return {sheetName:tmpl==='Grade Tracker'?'Grades':'Sheet1',rows:Array.from({length:12},()=>Array.from({length:6},()=>''))};
+      return {sheetName:tmpl==='Grade Tracker'?'Grades':'Sheet1',rows:Array.from({length:12},()=>Array.from({length:6},()=>'')),formulas:{}};
     }
     if(type==='form'){
       const base=tmpl==='Issue Spotter'
@@ -1680,7 +1733,7 @@ function DocsView({docs,setDocs,onToast}){
       return {items:base.map(t=>({id:nextId(),text:t,done:false}))};
     }
     const header=tmpl&&tmpl!=='Blank'?`${tmpl}\n\n`:'';
-    return {body:`${header}Start writing...`};
+    return {html:`<p>${esc(header)}Start writing...</p>`,font:'DM Sans',size:14};
   }
 
   const filtered=docs.filter(d=>{
@@ -1705,22 +1758,109 @@ function DocsView({docs,setDocs,onToast}){
       updateDoc(doc.id,{content:makeDocContent(doc.type,doc.template||'Blank')});
     }
     setActiveDocId(doc.id);
+    if(doc.type==='xlsx')setActiveCell({r:0,c:0});
   }
 
   function closeDoc(){
     setActiveDocId(null);
   }
 
-  function setDocBody(v){
+  function setDocHtml(v){
     if(!activeDoc)return;
-    updateDoc(activeDoc.id,{content:{...(activeDoc.content||{}),body:v}});
+    updateDoc(activeDoc.id,{content:{...(activeDoc.content||{}),html:v}});
+  }
+
+  function docCmd(cmd,val){
+    try{document.execCommand(cmd,false,val);}catch{}
+    if(docEditorRef.current)setDocHtml(docEditorRef.current.innerHTML||'');
   }
 
   function setSheetCell(r,c,v){
     if(!activeDoc)return;
     const cur=(activeDoc.content&&activeDoc.content.rows)||Array.from({length:12},()=>Array.from({length:6},()=>''));;
     const rows=cur.map((row,ri)=>ri===r?row.map((cell,ci)=>ci===c?v:cell):row);
-    updateDoc(activeDoc.id,{content:{...(activeDoc.content||{}),rows}});
+    const formulas={...((activeDoc.content&&activeDoc.content.formulas)||{})};
+    delete formulas[`${r},${c}`];
+    updateDoc(activeDoc.id,{content:{...(activeDoc.content||{}),rows,formulas}});
+  }
+
+  function colLabel(i){
+    let n=i+1, out='';
+    while(n>0){const r=(n-1)%26;out=String.fromCharCode(65+r)+out;n=Math.floor((n-1)/26);}
+    return out;
+  }
+
+  function parseCellRef(ref){
+    const m=String(ref||'').match(/^([A-Z]+)(\d+)$/);
+    if(!m)return null;
+    let c=0;
+    for(const ch of m[1])c=c*26+(ch.charCodeAt(0)-64);
+    return {r:Number(m[2])-1,c:c-1};
+  }
+
+  function getNumericCell(rows,r,c){
+    const v=Number((rows[r]&&rows[r][c])||0);
+    return Number.isFinite(v)?v:0;
+  }
+
+  function evalFormula(formula,rows){
+    let expr=String(formula||'').trim();
+    if(!expr.startsWith('='))return expr;
+    expr=expr.slice(1).toUpperCase();
+    const rangeCalc=(s,fn)=>{
+      const [a,b]=s.split(':');
+      const s1=parseCellRef(a), s2=parseCellRef(b);
+      if(!s1||!s2)return 0;
+      const r0=Math.min(s1.r,s2.r), r1=Math.max(s1.r,s2.r);
+      const c0=Math.min(s1.c,s2.c), c1=Math.max(s1.c,s2.c);
+      const vals=[];
+      for(let r=r0;r<=r1;r++)for(let c=c0;c<=c1;c++)vals.push(getNumericCell(rows,r,c));
+      if(!vals.length)return 0;
+      if(fn==='SUM')return vals.reduce((a,b)=>a+b,0);
+      if(fn==='AVG')return vals.reduce((a,b)=>a+b,0)/vals.length;
+      return 0;
+    };
+    expr=expr.replace(/(SUM|AVG)\(([A-Z]+\d+:[A-Z]+\d+)\)/g,(_,fn,range)=>String(rangeCalc(range,fn)));
+    expr=expr.replace(/([A-Z]+\d+)/g,(ref)=>{
+      const c=parseCellRef(ref);
+      return c?String(getNumericCell(rows,c.r,c.c)):'0';
+    });
+    if(!/^[0-9+\-*/().\s]+$/.test(expr))throw new Error('Invalid formula');
+    const val=Function(`"use strict";return (${expr})`)();
+    return Number.isFinite(val)?String(val):String(val||'');
+  }
+
+  function applyFormula(){
+    if(!activeDoc||activeDoc.type!=='xlsx')return;
+    const rows=((activeDoc.content&&activeDoc.content.rows)||Array.from({length:12},()=>Array.from({length:6},()=>''))).map(r=>[...r]);
+    const formulas={...((activeDoc.content&&activeDoc.content.formulas)||{})};
+    const key=`${activeCell.r},${activeCell.c}`;
+    try{
+      if(String(formulaBar).trim().startsWith('=')){
+        rows[activeCell.r][activeCell.c]=evalFormula(formulaBar,rows);
+        formulas[key]=formulaBar.trim();
+      }else{
+        rows[activeCell.r][activeCell.c]=formulaBar;
+        delete formulas[key];
+      }
+      updateDoc(activeDoc.id,{content:{...(activeDoc.content||{}),rows,formulas}});
+      onToast('Formula applied');
+    }catch(err){
+      onToast('Formula error');
+    }
+  }
+
+  useEffect(()=>{
+    if(!activeDoc||activeDoc.type!=='xlsx')return;
+    const key=`${activeCell.r},${activeCell.c}`;
+    const rows=(activeDoc.content&&activeDoc.content.rows)||[];
+    const formulas=(activeDoc.content&&activeDoc.content.formulas)||{};
+    setFormulaBar(formulas[key]!==undefined?formulas[key]:((rows[activeCell.r]&&rows[activeCell.r][activeCell.c])||''));
+  },[activeDocId,activeCell.r,activeCell.c,activeDoc?.content]);
+
+  function setDocStyle(field,val){
+    if(!activeDoc)return;
+    updateDoc(activeDoc.id,{content:{...(activeDoc.content||{}),[field]:val}});
   }
 
   function toggleFormItem(id){
@@ -1812,15 +1952,39 @@ function DocsView({docs,setDocs,onToast}){
               </div>
 
               {activeDoc.type==='docx'&&(
-                <textarea
-                  className="ebody"
-                  style={{minHeight:420,padding:0}}
-                  value={(activeDoc.content&&activeDoc.content.body)||''}
-                  onChange={e=>setDocBody(e.target.value)}
-                />
+                <div>
+                  <div style={{display:'flex',gap:6,marginBottom:8,flexWrap:'wrap'}}>
+                    <button className="btn btn-ghost btn-sm" onClick={()=>docCmd('bold')}>B</button>
+                    <button className="btn btn-ghost btn-sm" onClick={()=>docCmd('italic')}><i>I</i></button>
+                    <button className="btn btn-ghost btn-sm" onClick={()=>docCmd('underline')}><u>U</u></button>
+                    <button className="btn btn-ghost btn-sm" onClick={()=>docCmd('insertUnorderedList')}>• List</button>
+                    <button className="btn btn-ghost btn-sm" onClick={()=>docCmd('insertOrderedList')}>1. List</button>
+                    <select className="sel" style={{width:150,padding:'4px 8px'}} value={(activeDoc.content&&activeDoc.content.font)||'DM Sans'} onChange={e=>setDocStyle('font',e.target.value)}>
+                      {['DM Sans','Georgia','Times New Roman','Arial','Courier New'].map(f=><option key={f} value={f}>{f}</option>)}
+                    </select>
+                    <select className="sel" style={{width:90,padding:'4px 8px'}} value={String((activeDoc.content&&activeDoc.content.size)||14)} onChange={e=>setDocStyle('size',Number(e.target.value))}>
+                      {[11,12,13,14,16,18,20,24].map(s=><option key={s} value={s}>{s}px</option>)}
+                    </select>
+                  </div>
+                  <div
+                    ref={docEditorRef}
+                    contentEditable
+                    suppressContentEditableWarning
+                    onInput={()=>setDocHtml(docEditorRef.current.innerHTML||'')}
+                    dangerouslySetInnerHTML={{__html:(activeDoc.content&&activeDoc.content.html)||'<p></p>'}}
+                    style={{minHeight:420,padding:10,border:'1px solid var(--border)',borderRadius:8,outline:'none',fontFamily:(activeDoc.content&&activeDoc.content.font)||'DM Sans',fontSize:((activeDoc.content&&activeDoc.content.size)||14),lineHeight:1.75}}
+                  />
+                </div>
               )}
 
               {activeDoc.type==='xlsx'&&(
+                <div>
+                  <div style={{display:'flex',gap:8,marginBottom:8,alignItems:'center'}}>
+                    <span style={{fontSize:11,color:'var(--dim)',fontFamily:'JetBrains Mono,monospace'}}>fx</span>
+                    <input className="inp" value={formulaBar} onChange={e=>setFormulaBar(e.target.value)} placeholder="=SUM(A1:B3) or =A1+B1"/>
+                    <button className="btn btn-primary btn-sm" onClick={applyFormula}>Apply</button>
+                    <span style={{fontSize:10,color:'var(--dim)',fontFamily:'JetBrains Mono,monospace'}}>{colLabel(activeCell.c)}{activeCell.r+1}</span>
+                  </div>
                 <div style={{overflow:'auto',border:'1px solid var(--border)',borderRadius:8}}>
                   <table style={{borderCollapse:'collapse',width:'100%',minWidth:720}}>
                     <thead>
@@ -1835,13 +1999,20 @@ function DocsView({docs,setDocs,onToast}){
                           <td style={{borderBottom:'1px solid var(--border)',padding:8,fontSize:10,color:'var(--dim)'}}>{ri+1}</td>
                           {row.map((cell,ci)=>(
                             <td key={ci} style={{borderBottom:'1px solid var(--border)',padding:4}}>
-                              <input className="inp" style={{padding:'6px 8px',fontSize:12}} value={cell} onChange={e=>setSheetCell(ri,ci,e.target.value)}/>
+                              <input
+                                className="inp"
+                                style={{padding:'6px 8px',fontSize:12,borderColor:activeCell.r===ri&&activeCell.c===ci?'rgba(201,168,76,.5)':'var(--border)'}}
+                                value={cell}
+                                onFocus={()=>setActiveCell({r:ri,c:ci})}
+                                onChange={e=>setSheetCell(ri,ci,e.target.value)}
+                              />
                             </td>
                           ))}
                         </tr>
                       ))}
                     </tbody>
                   </table>
+                </div>
                 </div>
               )}
 
@@ -2541,7 +2712,7 @@ function App(){
           />}
           {!showAuth&&view==='dashboard'    && <Dashboard notes={notes} onToast={showToast} onNav={setView} user={user}/>}
           {!showAuth&&view==='notes'        && <NotesView notes={notes} setNotes={setNotes} onToast={showToast} user={user}/>}
-          {!showAuth&&view==='outline'      && <OutlineView onToast={showToast}/>}
+          {!showAuth&&view==='outline'      && <OutlineView onToast={showToast} user={user} notes={notes} docs={docs}/>}
           {!showAuth&&view==='practice'     && <PracticeView onToast={showToast} user={user}/>}
           {!showAuth&&view==='calendar'     && <CalendarView onToast={showToast} user={user} onNav={setView}/>}
           {!showAuth&&view==='docs'         && <DocsView docs={docs} setDocs={setDocs} onToast={showToast}/>}

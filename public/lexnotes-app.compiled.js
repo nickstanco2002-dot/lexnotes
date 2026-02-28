@@ -2267,38 +2267,149 @@ function NotesView({
   }, "Create Note \u2192"))));
 }
 function OutlineView({
-  onToast
+  onToast,
+  user,
+  notes,
+  docs
 }) {
-  const [tab, setTab] = useState('contracts');
-  const [updatedAt, setUpdatedAt] = useState('Feb 13, 2025');
-  const tabs = ['contracts', 'torts', 'crim', 'civpro', 'conlaw'];
-  const outlineText = `Contracts I — Master Outline
-
-I. Formation
-A. Offer
-B. Acceptance
-C. Consideration
-
-II. Breach & Remedies
-A. Material vs Minor Breach
-B. Expectation Damages
-C. Consequential Damages
-D. Reliance & Restitution
-
-III. Defenses
-A. Fraud/Duress
-B. Mistake
-C. Impossibility/Frustration`;
+  const OUTLINES_KEY = `lexnotes:${user?.id || 'anon'}:outlines`;
+  const NOTES_META_KEY = `lexnotes:${user?.id || 'anon'}:notes-meta`;
+  const editorRef = useRef(null);
+  const [courses, setCourses] = useState([]);
+  const [courseId, setCourseId] = useState('');
+  const [outlines, setOutlines] = useState(() => readJSON(OUTLINES_KEY, {}));
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    const meta = readJSON(NOTES_META_KEY, {});
+    const extra = Array.isArray(meta?.extraCourses) ? meta.extraCourses : [];
+    const byId = {};
+    extra.forEach(c => {
+      if (c && c.id) byId[c.id] = {
+        id: c.id,
+        label: c.label || c.id
+      };
+    });
+    (notes || []).forEach(n => {
+      if (n?.course && !byId[n.course]) byId[n.course] = {
+        id: n.course,
+        label: n.course.replace(/-/g, ' ').replace(/\b\w/g, m => m.toUpperCase())
+      };
+    });
+    (docs || []).forEach(d => {
+      if (d?.course && !byId[d.course]) byId[d.course] = {
+        id: d.course,
+        label: d.course.replace(/-/g, ' ').replace(/\b\w/g, m => m.toUpperCase())
+      };
+    });
+    const list = Object.values(byId);
+    setCourses(list);
+    if (!courseId && list[0]) setCourseId(list[0].id);
+  }, [notes, docs, NOTES_META_KEY, courseId]);
+  useEffect(() => {
+    writeJSON(OUTLINES_KEY, outlines);
+  }, [outlines, OUTLINES_KEY]);
+  useEffect(() => {
+    if (!editorRef.current) return;
+    editorRef.current.innerHTML = outlines[courseId]?.html || '';
+  }, [courseId]);
+  function saveCurrent() {
+    if (!courseId || !editorRef.current) return;
+    const html = editorRef.current.innerHTML || '';
+    setOutlines(p => ({
+      ...p,
+      [courseId]: {
+        ...(p[courseId] || {}),
+        html,
+        updatedAt: new Date().toISOString()
+      }
+    }));
+  }
+  function cmd(name, value) {
+    try {
+      document.execCommand(name, false, value);
+    } catch {}
+    saveCurrent();
+  }
+  function insertAtCursor(text) {
+    const safe = esc(text).replace(/\n/g, '<br/>');
+    cmd('insertHTML', `<p>${safe}</p>`);
+  }
   function exportOutline(ext) {
-    const safeCourse = (COURSES.find(c => c.id === tab)?.label || tab).replace(/\s+/g, '-').toLowerCase();
+    if (!courseId) {
+      onToast('Select a course first');
+      return;
+    }
+    const safeCourse = (courses.find(c => c.id === courseId)?.label || courseId).replace(/\s+/g, '-').toLowerCase();
     const name = `${safeCourse}-outline.${ext}`;
-    downloadFile(name, outlineText, ext === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'text/plain');
+    const html = outlines[courseId]?.html || '';
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    const text = tmp.innerText || '';
+    downloadFile(name, text, ext === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'text/plain');
     onToast(`Exported ${name}`);
   }
-  function regenerate() {
-    setUpdatedAt(new Date().toLocaleString());
-    onToast('Outline regenerated from your latest notes');
+  async function autoOutline() {
+    if (!courseId) {
+      onToast('Select a course first');
+      return;
+    }
+    setBusy(true);
+    try {
+      const courseNotes = (notes || []).filter(n => n.course === courseId).map(n => ({
+        id: n.id,
+        title: n.title,
+        type: n.type,
+        topic: n.topic,
+        content: n.content || '',
+        brief: n.bf || null,
+        preview: n.preview || ''
+      }));
+      const courseDocs = (docs || []).filter(d => d.course === courseId || !d.course).map(d => ({
+        id: d.id,
+        name: d.name,
+        type: d.type,
+        content: d.content || null
+      }));
+      const payload = {
+        courseId,
+        notes: {
+          notes: courseNotes,
+          docs: courseDocs,
+          transcripts: courseNotes.filter(n => n.type === 'auto')
+        }
+      };
+      const res = await fetch('/api/generate-outline', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Generation failed');
+      const outlineText = (data?.outline || '').trim();
+      if (!outlineText) throw new Error('No outline content returned');
+      const html = esc(outlineText).replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br/>');
+      const wrapped = `<p>${html}</p>`;
+      setOutlines(p => ({
+        ...p,
+        [courseId]: {
+          ...(p[courseId] || {}),
+          html: wrapped,
+          updatedAt: new Date().toISOString(),
+          auto: true
+        }
+      }));
+      if (editorRef.current) editorRef.current.innerHTML = wrapped;
+      onToast('AI outline generated');
+    } catch (err) {
+      onToast('Auto-outline failed: ' + (err?.message || 'Unknown error'));
+    } finally {
+      setBusy(false);
+    }
   }
+  const courseNotes = (notes || []).filter(n => n.course === courseId).slice(0, 25);
+  const current = outlines[courseId] || {};
   return React.createElement("div", {
     className: "view active afu",
     style: {
@@ -2306,7 +2417,7 @@ C. Impossibility/Frustration`;
     }
   }, React.createElement("div", {
     style: {
-      padding: '10px 20px',
+      padding: '10px 14px',
       borderBottom: '1px solid var(--border)',
       background: 'var(--surface)',
       display: 'flex',
@@ -2322,21 +2433,46 @@ C. Impossibility/Frustration`;
       flex: 1,
       flexWrap: 'wrap'
     }
-  }, tabs.map(t => React.createElement("button", {
-    key: t,
-    onClick: () => setTab(t),
+  }, courses.length === 0 ? React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: 'var(--dim)'
+    }
+  }, "No courses yet. Create a course in Notes first.") : courses.map(c => React.createElement("button", {
+    key: c.id,
+    onClick: () => setCourseId(c.id),
     style: {
       padding: '5px 11px',
       borderRadius: 6,
       border: '1px solid var(--border)',
-      background: tab === t ? 'var(--accent-dim)' : 'transparent',
-      color: tab === t ? 'var(--accent)' : 'var(--muted)',
+      background: courseId === c.id ? 'var(--accent-dim)' : 'transparent',
+      color: courseId === c.id ? 'var(--accent)' : 'var(--muted)',
       fontSize: 11.5,
       cursor: 'pointer',
-      transition: 'all .12s',
-      textTransform: 'capitalize'
+      transition: 'all .12s'
     }
-  }, COURSES.find(c => c.id === t)?.label || t))), React.createElement("button", {
+  }, c.label))), React.createElement("button", {
+    className: "btn btn-ghost btn-sm",
+    onClick: () => cmd('bold')
+  }, "B"), React.createElement("button", {
+    className: "btn btn-ghost btn-sm",
+    onClick: () => cmd('italic')
+  }, React.createElement("i", null, "I")), React.createElement("button", {
+    className: "btn btn-ghost btn-sm",
+    onClick: () => cmd('underline')
+  }, React.createElement("u", null, "U")), React.createElement("button", {
+    className: "btn btn-ghost btn-sm",
+    onClick: () => cmd('insertUnorderedList')
+  }, "\u2022 List"), React.createElement("button", {
+    className: "btn btn-ghost btn-sm",
+    onClick: () => cmd('insertOrderedList')
+  }, "1. List"), React.createElement("button", {
+    className: "btn btn-ghost btn-sm",
+    onClick: () => cmd('formatBlock', '<h2>')
+  }, "H2"), React.createElement("button", {
+    className: "btn btn-ghost btn-sm",
+    onClick: () => cmd('formatBlock', '<p>')
+  }, "P"), React.createElement("button", {
     className: "btn btn-ghost btn-sm",
     onClick: () => exportOutline('pdf')
   }, "\u2913 PDF"), React.createElement("button", {
@@ -2344,111 +2480,94 @@ C. Impossibility/Frustration`;
     onClick: () => exportOutline('docx')
   }, "\u2913 DOCX"), React.createElement("button", {
     className: "btn btn-primary btn-sm",
-    onClick: regenerate
-  }, "\u26A1 Regenerate")), React.createElement("div", {
+    disabled: busy || !courseId,
+    onClick: autoOutline
+  }, busy ? 'Generating…' : '⚡ Auto-Outline (AI)')), React.createElement("div", {
+    style: {
+      display: 'flex',
+      flex: 1,
+      overflow: 'hidden'
+    }
+  }, React.createElement("div", {
+    style: {
+      width: 260,
+      borderRight: '1px solid var(--border)',
+      background: 'var(--surface)',
+      overflowY: 'auto'
+    }
+  }, React.createElement("div", {
+    style: {
+      padding: '10px 12px',
+      borderBottom: '1px solid var(--border)',
+      fontSize: 10,
+      fontFamily: 'JetBrains Mono,monospace',
+      color: 'var(--dim)',
+      textTransform: 'uppercase',
+      letterSpacing: 1
+    }
+  }, "Insert from Course Notes"), courseNotes.length === 0 ? React.createElement("div", {
+    style: {
+      padding: 12,
+      fontSize: 11,
+      color: 'var(--dim)'
+    }
+  }, "No notes for this course yet.") : courseNotes.map(n => React.createElement("div", {
+    key: n.id,
+    style: {
+      padding: '8px 10px',
+      borderBottom: '1px solid var(--border)'
+    }
+  }, React.createElement("div", {
+    style: {
+      fontSize: 11.5,
+      fontWeight: 600,
+      marginBottom: 3
+    }
+  }, n.title), React.createElement("div", {
+    style: {
+      fontSize: 10,
+      color: 'var(--muted)',
+      marginBottom: 6
+    }
+  }, n.type, " \xB7 ", n.topic || 'general'), React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 6
+    }
+  }, React.createElement("button", {
+    className: "btn btn-ghost btn-sm",
+    onClick: () => insertAtCursor(`[Case] ${n.title}\n${n.preview || ''}`)
+  }, "+ Case"), React.createElement("button", {
+    className: "btn btn-ghost btn-sm",
+    onClick: () => insertAtCursor(`[Note] ${n.title}\n${(n.content || '').slice(0, 260)}`)
+  }, "+ Note"))))), React.createElement("div", {
     style: {
       flex: 1,
-      overflowY: 'auto'
+      overflowY: 'auto',
+      padding: 18
     }
   }, React.createElement("div", {
     className: "outline-doc"
   }, React.createElement("div", {
     className: "otag"
-  }, "Contracts \xB7 AI Auto-Outline"), React.createElement("div", {
+  }, courses.find(c => c.id === courseId)?.label || 'Outline', " \xB7 User Draft"), React.createElement("div", {
     className: "otitle"
-  }, "Contracts I \u2014 Master Outline"), React.createElement("div", {
+  }, courses.find(c => c.id === courseId)?.label || 'Course', " Outline"), React.createElement("div", {
     className: "ometa"
-  }, "38 cases \xB7 18 notes \xB7 Prof. Martinez \xB7 Updated ", updatedAt, " \xB7 \u26A1 AI-generated from your notes"), React.createElement("div", {
-    className: "osec"
-  }, React.createElement("div", {
-    className: "oh1"
-  }, React.createElement("span", {
-    className: "oh1-n"
-  }, "I."), " Formation of a Contract"), React.createElement("div", {
-    className: "oh2"
-  }, "A. Offer"), React.createElement("div", {
-    className: "opt"
-  }, "Manifestation of willingness to enter a bargain; must be definite, communicated, and show present intent. (", React.createElement("span", {
-    className: "cite"
-  }, "Restatement \xA7 24"), ")"), React.createElement("div", {
-    className: "opt"
-  }, "Advertisements generally not offers but invitations to deal \u2014 unless specific and leave nothing open. (", React.createElement("span", {
-    className: "cite"
-  }, "Lefkowitz v. Great Minneapolis Surplus Store"), ")"), React.createElement("div", {
-    className: "oh2"
-  }, "B. Acceptance"), React.createElement("div", {
-    className: "opt"
-  }, "Mirror image rule (common law): acceptance must match offer exactly. Any variation = rejection + counteroffer."), React.createElement("div", {
-    className: "opt"
-  }, "Mailbox rule: acceptance effective upon dispatch. Revocation effective only upon receipt."), React.createElement("div", {
-    className: "opt"
-  }, "UCC \xA7 2-207 Battle of the Forms: additional terms in acceptance don't necessarily kill the deal for goods contracts."), React.createElement("div", {
-    className: "oh2"
-  }, "C. Consideration"), React.createElement("div", {
-    className: "opt"
-  }, "Bargained-for exchange \u2014 benefit to promisor or detriment to promisee. (", React.createElement("span", {
-    className: "cite"
-  }, "Hamer v. Sidway"), ")"), React.createElement("div", {
-    className: "opt"
-  }, "Pre-existing duty rule: performing a legal obligation already owed is not consideration. (", React.createElement("span", {
-    className: "cite"
-  }, "Alaska Packers v. Domenico"), ")"), React.createElement("div", {
-    className: "opt"
-  }, "Past consideration is not valid \u2014 the act must be in exchange for the promise.")), React.createElement("div", {
-    className: "osec"
-  }, React.createElement("div", {
-    className: "oh1"
-  }, React.createElement("span", {
-    className: "oh1-n"
-  }, "II."), " Breach & Remedies"), React.createElement("div", {
-    className: "oh2"
-  }, "A. Material vs. Minor Breach"), React.createElement("div", {
-    className: "opt"
-  }, "Material breach discharges non-breaching party's duty to perform. Factors: extent of non-performance, likelihood of cure, adequacy of damages. (", React.createElement("span", {
-    className: "cite"
-  }, "Jacob & Youngs v. Kent"), ")"), React.createElement("div", {
-    className: "oh2"
-  }, "B. Expectation Damages"), React.createElement("div", {
-    className: "opt"
-  }, "Benefit of the bargain \u2014 put plaintiff in the position had contract been performed. Most common remedy."), React.createElement("div", {
-    className: "oh2"
-  }, "C. Consequential Damages"), React.createElement("div", {
-    className: "opt"
-  }, "Must be foreseeable at formation \u2014 either naturally arising from breach or within parties' contemplation. (", React.createElement("span", {
-    className: "cite"
-  }, "Hadley v. Baxendale"), ") \u2190 ", React.createElement("em", {
+  }, courseNotes.length, " notes \xB7 ", docs.filter(d => d.course === courseId).length, " docs \xB7 Updated ", current.updatedAt ? new Date(current.updatedAt).toLocaleString() : 'Not saved yet'), React.createElement("div", {
+    ref: editorRef,
+    contentEditable: true,
+    suppressContentEditableWarning: true,
+    onInput: saveCurrent,
     style: {
-      color: 'var(--accent)'
-    }
-  }, "Your most recent brief")), React.createElement("div", {
-    className: "oh2"
-  }, "D. Reliance & Restitution"), React.createElement("div", {
-    className: "opt"
-  }, "Reliance: restore plaintiff to pre-contract position. Restitution: prevents unjust enrichment \u2014 defendant disgorges benefit conferred.")), React.createElement("div", {
-    className: "osec"
-  }, React.createElement("div", {
-    className: "oh1"
-  }, React.createElement("span", {
-    className: "oh1-n"
-  }, "III."), " Defenses & Excuses"), React.createElement("div", {
-    className: "oh2"
-  }, "A. Fraud, Duress, Undue Influence"), React.createElement("div", {
-    className: "opt"
-  }, "Grounds to void or voidize a contract. Duress: improper threat leaving no reasonable alternative. (", React.createElement("span", {
-    className: "cite"
-  }, "Austin Instruments v. Loral Corp."), ")"), React.createElement("div", {
-    className: "oh2"
-  }, "B. Mistake"), React.createElement("div", {
-    className: "opt"
-  }, "Mutual mistake about a basic assumption \u2192 voidable if it materially affects agreed exchange. (", React.createElement("span", {
-    className: "cite"
-  }, "Raffles v. Wichelhaus"), ")"), React.createElement("div", {
-    className: "oh2"
-  }, "C. Impossibility / Frustration of Purpose"), React.createElement("div", {
-    className: "opt"
-  }, "Impossibility: supervening event makes performance objectively impossible. Frustration: performance possible but purpose is entirely destroyed. (", React.createElement("span", {
-    className: "cite"
-  }, "Krell v. Henry"), ")")))));
+      minHeight: 520,
+      outline: 'none',
+      fontSize: 13.5,
+      lineHeight: 1.8,
+      color: 'var(--text)'
+    },
+    placeholder: "Start outlining here..."
+  })))));
 }
 function PracticeView({
   onToast,
@@ -2809,11 +2928,17 @@ function DocsView({
   setDocs,
   onToast
 }) {
+  const docEditorRef = useRef(null);
   const [cF, setCF] = useState('all');
   const [tF, setTF] = useState('all');
   const [panCol, setPanCol] = useState(false);
   const [modal, setModal] = useState(false);
   const [activeDocId, setActiveDocId] = useState(null);
+  const [activeCell, setActiveCell] = useState({
+    r: 0,
+    c: 0
+  });
+  const [formulaBar, setFormulaBar] = useState('');
   const [dName, setDName] = useState('');
   const [dType, setDType] = useState('docx');
   const [dCourse, setDCourse] = useState('');
@@ -2834,7 +2959,8 @@ function DocsView({
           length: 12
         }, () => Array.from({
           length: 6
-        }, () => ''))
+        }, () => '')),
+        formulas: {}
       };
     }
     if (type === 'form') {
@@ -2849,7 +2975,9 @@ function DocsView({
     }
     const header = tmpl && tmpl !== 'Blank' ? `${tmpl}\n\n` : '';
     return {
-      body: `${header}Start writing...`
+      html: `<p>${esc(header)}Start writing...</p>`,
+      font: 'DM Sans',
+      size: 14
     };
   }
   const filtered = docs.filter(d => {
@@ -2891,18 +3019,28 @@ function DocsView({
       });
     }
     setActiveDocId(doc.id);
+    if (doc.type === 'xlsx') setActiveCell({
+      r: 0,
+      c: 0
+    });
   }
   function closeDoc() {
     setActiveDocId(null);
   }
-  function setDocBody(v) {
+  function setDocHtml(v) {
     if (!activeDoc) return;
     updateDoc(activeDoc.id, {
       content: {
         ...(activeDoc.content || {}),
-        body: v
+        html: v
       }
     });
+  }
+  function docCmd(cmd, val) {
+    try {
+      document.execCommand(cmd, false, val);
+    } catch {}
+    if (docEditorRef.current) setDocHtml(docEditorRef.current.innerHTML || '');
   }
   function setSheetCell(r, c, v) {
     if (!activeDoc) return;
@@ -2913,10 +3051,115 @@ function DocsView({
     }, () => ''));
     ;
     const rows = cur.map((row, ri) => ri === r ? row.map((cell, ci) => ci === c ? v : cell) : row);
+    const formulas = {
+      ...(activeDoc.content && activeDoc.content.formulas || {})
+    };
+    delete formulas[`${r},${c}`];
     updateDoc(activeDoc.id, {
       content: {
         ...(activeDoc.content || {}),
-        rows
+        rows,
+        formulas
+      }
+    });
+  }
+  function colLabel(i) {
+    let n = i + 1,
+      out = '';
+    while (n > 0) {
+      const r = (n - 1) % 26;
+      out = String.fromCharCode(65 + r) + out;
+      n = Math.floor((n - 1) / 26);
+    }
+    return out;
+  }
+  function parseCellRef(ref) {
+    const m = String(ref || '').match(/^([A-Z]+)(\d+)$/);
+    if (!m) return null;
+    let c = 0;
+    for (const ch of m[1]) c = c * 26 + (ch.charCodeAt(0) - 64);
+    return {
+      r: Number(m[2]) - 1,
+      c: c - 1
+    };
+  }
+  function getNumericCell(rows, r, c) {
+    const v = Number(rows[r] && rows[r][c] || 0);
+    return Number.isFinite(v) ? v : 0;
+  }
+  function evalFormula(formula, rows) {
+    let expr = String(formula || '').trim();
+    if (!expr.startsWith('=')) return expr;
+    expr = expr.slice(1).toUpperCase();
+    const rangeCalc = (s, fn) => {
+      const [a, b] = s.split(':');
+      const s1 = parseCellRef(a),
+        s2 = parseCellRef(b);
+      if (!s1 || !s2) return 0;
+      const r0 = Math.min(s1.r, s2.r),
+        r1 = Math.max(s1.r, s2.r);
+      const c0 = Math.min(s1.c, s2.c),
+        c1 = Math.max(s1.c, s2.c);
+      const vals = [];
+      for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) vals.push(getNumericCell(rows, r, c));
+      if (!vals.length) return 0;
+      if (fn === 'SUM') return vals.reduce((a, b) => a + b, 0);
+      if (fn === 'AVG') return vals.reduce((a, b) => a + b, 0) / vals.length;
+      return 0;
+    };
+    expr = expr.replace(/(SUM|AVG)\(([A-Z]+\d+:[A-Z]+\d+)\)/g, (_, fn, range) => String(rangeCalc(range, fn)));
+    expr = expr.replace(/([A-Z]+\d+)/g, ref => {
+      const c = parseCellRef(ref);
+      return c ? String(getNumericCell(rows, c.r, c.c)) : '0';
+    });
+    if (!/^[0-9+\-*/().\s]+$/.test(expr)) throw new Error('Invalid formula');
+    const val = Function(`"use strict";return (${expr})`)();
+    return Number.isFinite(val) ? String(val) : String(val || '');
+  }
+  function applyFormula() {
+    if (!activeDoc || activeDoc.type !== 'xlsx') return;
+    const rows = (activeDoc.content && activeDoc.content.rows || Array.from({
+      length: 12
+    }, () => Array.from({
+      length: 6
+    }, () => ''))).map(r => [...r]);
+    const formulas = {
+      ...(activeDoc.content && activeDoc.content.formulas || {})
+    };
+    const key = `${activeCell.r},${activeCell.c}`;
+    try {
+      if (String(formulaBar).trim().startsWith('=')) {
+        rows[activeCell.r][activeCell.c] = evalFormula(formulaBar, rows);
+        formulas[key] = formulaBar.trim();
+      } else {
+        rows[activeCell.r][activeCell.c] = formulaBar;
+        delete formulas[key];
+      }
+      updateDoc(activeDoc.id, {
+        content: {
+          ...(activeDoc.content || {}),
+          rows,
+          formulas
+        }
+      });
+      onToast('Formula applied');
+    } catch (err) {
+      onToast('Formula error');
+    }
+  }
+  useEffect(() => {
+    if (!activeDoc || activeDoc.type !== 'xlsx') return;
+    const key = `${activeCell.r},${activeCell.c}`;
+    const rows = activeDoc.content && activeDoc.content.rows || [];
+    const formulas = activeDoc.content && activeDoc.content.formulas || {};
+    setFormulaBar(formulas[key] !== undefined ? formulas[key] : rows[activeCell.r] && rows[activeCell.r][activeCell.c] || '');
+  }, [activeDocId, activeCell.r, activeCell.c, activeDoc?.content]);
+  function setDocStyle(field, val) {
+    if (!activeDoc) return;
+    updateDoc(activeDoc.id, {
+      content: {
+        ...(activeDoc.content || {}),
+        [field]: val
       }
     });
   }
@@ -3243,15 +3486,96 @@ function DocsView({
       fontFamily: 'JetBrains Mono,monospace',
       marginBottom: 10
     }
-  }, activeDoc.type === 'docx' ? 'Word Document' : activeDoc.type === 'xlsx' ? 'Spreadsheet' : 'Form', " \xB7 ", activeDoc.modified), activeDoc.type === 'docx' && React.createElement("textarea", {
-    className: "ebody",
+  }, activeDoc.type === 'docx' ? 'Word Document' : activeDoc.type === 'xlsx' ? 'Spreadsheet' : 'Form', " \xB7 ", activeDoc.modified), activeDoc.type === 'docx' && React.createElement("div", null, React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 6,
+      marginBottom: 8,
+      flexWrap: 'wrap'
+    }
+  }, React.createElement("button", {
+    className: "btn btn-ghost btn-sm",
+    onClick: () => docCmd('bold')
+  }, "B"), React.createElement("button", {
+    className: "btn btn-ghost btn-sm",
+    onClick: () => docCmd('italic')
+  }, React.createElement("i", null, "I")), React.createElement("button", {
+    className: "btn btn-ghost btn-sm",
+    onClick: () => docCmd('underline')
+  }, React.createElement("u", null, "U")), React.createElement("button", {
+    className: "btn btn-ghost btn-sm",
+    onClick: () => docCmd('insertUnorderedList')
+  }, "\u2022 List"), React.createElement("button", {
+    className: "btn btn-ghost btn-sm",
+    onClick: () => docCmd('insertOrderedList')
+  }, "1. List"), React.createElement("select", {
+    className: "sel",
+    style: {
+      width: 150,
+      padding: '4px 8px'
+    },
+    value: activeDoc.content && activeDoc.content.font || 'DM Sans',
+    onChange: e => setDocStyle('font', e.target.value)
+  }, ['DM Sans', 'Georgia', 'Times New Roman', 'Arial', 'Courier New'].map(f => React.createElement("option", {
+    key: f,
+    value: f
+  }, f))), React.createElement("select", {
+    className: "sel",
+    style: {
+      width: 90,
+      padding: '4px 8px'
+    },
+    value: String(activeDoc.content && activeDoc.content.size || 14),
+    onChange: e => setDocStyle('size', Number(e.target.value))
+  }, [11, 12, 13, 14, 16, 18, 20, 24].map(s => React.createElement("option", {
+    key: s,
+    value: s
+  }, s, "px")))), React.createElement("div", {
+    ref: docEditorRef,
+    contentEditable: true,
+    suppressContentEditableWarning: true,
+    onInput: () => setDocHtml(docEditorRef.current.innerHTML || ''),
+    dangerouslySetInnerHTML: {
+      __html: activeDoc.content && activeDoc.content.html || '<p></p>'
+    },
     style: {
       minHeight: 420,
-      padding: 0
-    },
-    value: activeDoc.content && activeDoc.content.body || '',
-    onChange: e => setDocBody(e.target.value)
-  }), activeDoc.type === 'xlsx' && React.createElement("div", {
+      padding: 10,
+      border: '1px solid var(--border)',
+      borderRadius: 8,
+      outline: 'none',
+      fontFamily: activeDoc.content && activeDoc.content.font || 'DM Sans',
+      fontSize: activeDoc.content && activeDoc.content.size || 14,
+      lineHeight: 1.75
+    }
+  })), activeDoc.type === 'xlsx' && React.createElement("div", null, React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      marginBottom: 8,
+      alignItems: 'center'
+    }
+  }, React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: 'var(--dim)',
+      fontFamily: 'JetBrains Mono,monospace'
+    }
+  }, "fx"), React.createElement("input", {
+    className: "inp",
+    value: formulaBar,
+    onChange: e => setFormulaBar(e.target.value),
+    placeholder: "=SUM(A1:B3) or =A1+B1"
+  }), React.createElement("button", {
+    className: "btn btn-primary btn-sm",
+    onClick: applyFormula
+  }, "Apply"), React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: 'var(--dim)',
+      fontFamily: 'JetBrains Mono,monospace'
+    }
+  }, colLabel(activeCell.c), activeCell.r + 1)), React.createElement("div", {
     style: {
       overflow: 'auto',
       border: '1px solid var(--border)',
@@ -3302,11 +3626,16 @@ function DocsView({
     className: "inp",
     style: {
       padding: '6px 8px',
-      fontSize: 12
+      fontSize: 12,
+      borderColor: activeCell.r === ri && activeCell.c === ci ? 'rgba(201,168,76,.5)' : 'var(--border)'
     },
     value: cell,
+    onFocus: () => setActiveCell({
+      r: ri,
+      c: ci
+    }),
     onChange: e => setSheetCell(ri, ci, e.target.value)
-  })))))))), activeDoc.type === 'form' && React.createElement("div", null, React.createElement("div", {
+  }))))))))), activeDoc.type === 'form' && React.createElement("div", null, React.createElement("div", {
     style: {
       display: 'flex',
       justifyContent: 'flex-end',
@@ -4876,7 +5205,10 @@ function App() {
     onToast: showToast,
     user: user
   }), !showAuth && view === 'outline' && React.createElement(OutlineView, {
-    onToast: showToast
+    onToast: showToast,
+    user: user,
+    notes: notes,
+    docs: docs
   }), !showAuth && view === 'practice' && React.createElement(PracticeView, {
     onToast: showToast,
     user: user
