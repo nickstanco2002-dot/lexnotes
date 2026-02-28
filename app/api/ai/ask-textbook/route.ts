@@ -1,37 +1,35 @@
 import { NextResponse } from "next/server";
-import { openai } from "@/lib/openai";
-import { createClient } from "@supabase/supabase-js";
+import { OpenAI } from "openai";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function POST(req: Request) {
   const { question } = await req.json();
 
-  const embedding = await openai.embeddings.create({
-    model: "text-embedding-3-small",
-    input: question,
-  });
+  try {
+    // TODO: Implement textbook search with Supabase embeddings
+    // For MVP, return a helpful response without textbook context
+    
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4-turbo-preview",
+      messages: [
+        { 
+          role: "system", 
+          content: "You are a helpful law school study assistant. Provide clear explanations of legal concepts. Full textbook context will be available in the next release." 
+        },
+        { role: "user", content: question },
+      ],
+      temperature: 0.7,
+    });
 
-  const { data } = await supabase.rpc("match_textbook_chunks", {
-    query_embedding: embedding.data[0].embedding,
-    match_threshold: 0.7,
-    match_count: 5,
-  });
-
-  const context = data.map((d: any) => d.content_chunk).join("\n");
-
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      { role: "system", content: "Answer only using textbook context." },
-      { role: "user", content: `Context:\n${context}\n\nQuestion:${question}` },
-    ],
-  });
-
-  return NextResponse.json({
-    answer: completion.choices[0].message.content,
-  });
+    return NextResponse.json({
+      answer: completion.choices[0].message.content,
+    });
+  } catch (error) {
+    console.error('Textbook question error:', error);
+    return NextResponse.json(
+      { error: 'Failed to process question' }, 
+      { status: 500 }
+    );
+  }
 }

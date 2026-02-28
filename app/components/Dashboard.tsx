@@ -126,8 +126,8 @@ export default function DashboardView() {
 
 function StatCard({ label, value, trend, color }: any) {
   return (
-    <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 relative overflow-hidden group hover:border-[var(--text-dim)] transition-colors">
-      <div className="absolute top-0 left-0 w-1 h-full" style={{ backgroundColor: color }}></div>
+    <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 relative overflow-hidden group hover:border-[var(--text-dim)] transition-colors" style={{ '--stat-color': color } as any}>
+      <div className="absolute top-0 left-0 w-1 h-full bg-[--stat-color]"></div>
       <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest font-[family-name:'JetBrains_Mono'] mb-2">{label}</div>
       <div className="text-[28px] font-bold font-[family-name:'Playfair_Display'] mb-1">{value}</div>
       <div className="text-[11px] text-[var(--text-dim)]">{trend}</div>
@@ -137,9 +137,9 @@ function StatCard({ label, value, trend, color }: any) {
 
 function ScheduleItem({ time, title, room, color, active = false }: any) {
   return (
-    <div className={`flex items-center gap-4 p-3 rounded-lg border transition-all ${active ? 'bg-[var(--surface2)] border-[var(--border)]' : 'border-transparent opacity-60 hover:opacity-100'}`}>
+    <div className={`flex items-center gap-4 p-3 rounded-lg border transition-all ${active ? 'bg-[var(--surface2)] border-[var(--border)]' : 'border-transparent opacity-60 hover:opacity-100'}`} style={{ '--dot-color': color } as any}>
       <div className="text-[11px] font-[family-name:'JetBrains_Mono'] w-16 text-[var(--text-muted)]">{time}</div>
-      <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }}></div>
+      <div className="w-1.5 h-1.5 rounded-full bg-[--dot-color]"></div>
       <div className="flex-1">
         <div className="text-[13px] font-medium">{title}</div>
         <div className="text-[11px] text-[var(--text-dim)]">{room}</div>

@@ -1,0 +1,3 @@
+{
+  "/api/ai/ask-textbook/route": "app/api/ai/ask-textbook/route.js"
+}

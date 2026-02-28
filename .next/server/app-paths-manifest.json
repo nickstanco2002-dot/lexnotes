@@ -1,0 +1,16 @@
+{
+  "/_global-error/page": "app/_global-error/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/ai/ask-textbook/route": "app/api/ai/ask-textbook/route.js",
+  "/api/chat/route": "app/api/chat/route.js",
+  "/api/generate-outline/route": "app/api/generate-outline/route.js",
+  "/api/merge-notes/route": "app/api/merge-notes/route.js",
+  "/api/merge/route": "app/api/merge/route.js",
+  "/api/practice-exam/route": "app/api/practice-exam/route.js",
+  "/api/process-textbook/route": "app/api/process-textbook/route.js",
+  "/api/transcribe/route": "app/api/transcribe/route.js",
+  "/api/upload-pdf/route": "app/api/upload-pdf/route.js",
+  "/api/upload-textbook/route": "app/api/upload-textbook/route.js",
+  "/login/page": "app/login/page.js",
+  "/page": "app/page.js"
+}

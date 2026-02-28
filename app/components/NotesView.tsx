@@ -212,6 +212,7 @@ export default function NotesView() {
                   <textarea 
                     className="bg-transparent border border-[var(--border)] rounded-md p-3 text-[13.5px] leading-relaxed text-[var(--text)] outline-none w-full min-h-[60px] resize-none font-[family-name:'DM_Sans'] transition-colors focus:border-[rgba(201,168,76,0.5)] focus:bg-[rgba(201,168,76,0.03)]"
                     defaultValue={sec.val}
+                    aria-label={sec.label}
                   />
                 </div>
               ))}
